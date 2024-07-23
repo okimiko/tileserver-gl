@@ -100,6 +100,16 @@ Source data
 
   * TileJSON at ``/data/{id}.json``
 
+Static files
+===========
+* Static files are served at ``/files/{filename}``
+
+  * The source folder can be configured (``options.paths.files``), default is ``data``
+
+  * This feature can be used to serve ``geojson`` files for styles and rendered tiles.
+
+    * Use ``file://{options.paths.files}/{filename}`` to have matching paths for both endoints
+
 TileJSON arrays
 ===============
 Array of all TileJSONs is at ``[/{tileSize}]/index.json`` (``[/{tileSize}]/rendered.json``; ``/data.json``)
