@@ -871,7 +871,6 @@ export const serve_rendered = {
           ratio,
           request: async (req, callback) => {
             const protocol = req.url.split(':')[0];
-            const filetype = req.url.split('.')[1];
             // console.log('Handling request:', req);
             if (protocol === 'sprites') {
               const dir = options.paths[protocol];
@@ -1021,15 +1020,21 @@ export const serve_rendered = {
                 const format = extensionToFormat[extension] || '';
                 createEmptyResponse(format, '', callback);
               }
-            } else if (filetype === "geojson" && fs.existsSync(req.url)) {
-              const inputFileStats = fs.statSync(req.url);
-              if (!inputFileStats.isFile() || inputFileStats.size === 0) {
-                throw Error(`File is not valid: "${req.url}"`);
-              }
+            } else if (protocol === 'file') {
+              const file = url.fileURLToPath(req.url);
+              if (fs.existsSync(file)) {
 
-              fs.readFile(req.url, (err, data) => {
-                callback(err, { data: data });
-              });
+                const inputFileStats = fs.statSync(file);
+                if (!inputFileStats.isFile() || inputFileStats.size === 0) {
+                  throw Error(`File is not valid: "${req.url}"`);
+                }
+
+                fs.readFile(file, (err, data) => {
+                  callback(err, { data: data });
+                });
+              } else {
+                throw Error(`File does not exist: "${req.url}"`);
+              }
             }
           }
         });

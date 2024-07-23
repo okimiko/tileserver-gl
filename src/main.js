@@ -115,6 +115,7 @@ const startWithInputFile = async (inputFile) => {
         styles: 'styles',
         mbtiles: inputFilePath,
         pmtiles: inputFilePath,
+        files: inputFilePath
       },
     },
     styles: {},
