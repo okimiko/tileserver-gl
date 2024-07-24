@@ -1022,7 +1022,7 @@ export const serve_rendered = {
               }
             } else if (protocol === 'file') {
               const name = decodeURI(req.url).substring(protocol.length + 3);
-              const file = path.resolve(options.paths['files'], name)
+              const file = path.join(options.paths['files'], name)
               if (fs.existsSync(file)) {
 
                 const inputFileStats = fs.statSync(file);

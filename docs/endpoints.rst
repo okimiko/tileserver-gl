@@ -110,7 +110,7 @@ Static files
 
     * Keep in mind, that each rendered tile loads the whole geojson file, if performance matters a conversion to a tiled format (e.g. with https://github.com/felt/tippecanoe)may be a better approch.
 
-    * Use ``file://{filename}`` (or the longer ```file://{options.paths.root}/{options.paths.files}/{filename}``) to have matching paths for both endoints
+    * Use ``file://{filename}`` to have matching paths for both endoints
 
 TileJSON arrays
 ===============
