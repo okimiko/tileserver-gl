@@ -874,13 +874,13 @@ export const serve_rendered = {
             // console.log('Handling request:', req);
             if (protocol === 'sprites') {
               const dir = options.paths[protocol];
-              const file = unescape(req.url).substring(protocol.length + 3);
+              const file = decodeURI(req.url).substring(protocol.length + 3);
               fs.readFile(path.join(dir, file), (err, data) => {
                 callback(err, { data: data });
               });
             } else if (protocol === 'fonts') {
               const parts = req.url.split('/');
-              const fontstack = unescape(parts[2]);
+              const fontstack = decodeURI(parts[2]);
               const range = parts[3].split('.')[0];
 
               try {
@@ -1021,19 +1021,20 @@ export const serve_rendered = {
                 createEmptyResponse(format, '', callback);
               }
             } else if (protocol === 'file') {
-              const file = url.fileURLToPath(req.url);
+              const name = decodeURI(req.url).substring(protocol.length + 3);
+              const file = path.resolve(options.paths['files'], name)
               if (fs.existsSync(file)) {
 
                 const inputFileStats = fs.statSync(file);
                 if (!inputFileStats.isFile() || inputFileStats.size === 0) {
-                  throw Error(`File is not valid: "${req.url}"`);
+                  throw Error(`File is not valid: "${req.url}" - resolved to "${file}"`);
                 }
 
                 fs.readFile(file, (err, data) => {
                   callback(err, { data: data });
                 });
               } else {
-                throw Error(`File does not exist: "${req.url}"`);
+                throw Error(`File does not exist: "${req.url}" - resolved to "${file}"`);
               }
             }
           }

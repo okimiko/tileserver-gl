@@ -135,7 +135,7 @@ export const serve_style = {
         data &&
         (data.startsWith('file://'))
       ) {
-          source.data = 'local://files' + data.replace('file://', '').replace(options.paths.files, '');
+          source.data = 'local://files' + path.resolve('/', data.replace('file://', '').replace(options.paths.files, ''));
       }
     }
 

@@ -104,11 +104,13 @@ Static files
 ===========
 * Static files are served at ``/files/{filename}``
 
-  * The source folder can be configured (``options.paths.files``), default is ``data``
+  * The source folder can be configured (``options.paths.files``), default is ``public/files``
 
   * This feature can be used to serve ``geojson`` files for styles and rendered tiles.
 
-    * Use ``file://{options.paths.files}/{filename}`` to have matching paths for both endoints
+    * Keep in mind, that each rendered tile loads the whole geojson file, if performance matters a conversion to a tiled format (e.g. with https://github.com/felt/tippecanoe)may be a better approch.
+
+    * Use ``file://{filename}`` (or the longer ```file://{options.paths.root}/{options.paths.files}/{filename}``) to have matching paths for both endoints
 
 TileJSON arrays
 ===============
