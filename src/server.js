@@ -95,7 +95,7 @@ function start(opts) {
   paths.mbtiles = path.resolve(paths.root, paths.mbtiles || '');
   paths.pmtiles = path.resolve(paths.root, paths.pmtiles || '');
   paths.icons = path.resolve(paths.root, paths.icons || '');
-  paths.files = path.resolve(paths.root, paths.files || '');
+  paths.files = path.resolve(paths.root, paths.files || 'public/files');
 
   const startupPromises = [];
 
