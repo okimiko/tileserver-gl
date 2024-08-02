@@ -42,7 +42,7 @@ import {
 } from './pmtiles_adapter.js';
 import { renderOverlay, renderWatermark, renderAttribution } from './render.js';
 import fsp from 'node:fs/promises';
-import { gunzipP } from './promises.js';
+import { existsP, gunzipP } from './promises.js';
 
 const FLOAT_PATTERN = '[+-]?(?:\\d+|\\d+.?\\d+)';
 const PATH_PATTERN =
@@ -1023,10 +1023,10 @@ export const serve_rendered = {
               }
             } else if (protocol === 'file') {
               const name = decodeURI(req.url).substring(protocol.length + 3);
-              const file = path.join(options.paths['files'], name)
-              if (fs.existsSync(file)) {
+              const file = path.join(options.paths['files'], name);
+              if (await existsP(file)) {
 
-                const inputFileStats = fs.statSync(file);
+                const inputFileStats = await fsp.stat(file);
                 if (!inputFileStats.isFile() || inputFileStats.size === 0) {
                   throw Error(`File is not valid: "${req.url}" - resolved to "${file}"`);
                 }
