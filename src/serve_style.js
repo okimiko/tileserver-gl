@@ -26,7 +26,9 @@ export const serve_style = {
       for (const name of Object.keys(styleJSON_.sources)) {
         const source = styleJSON_.sources[name];
         source.url = fixUrl(req, source.url, item.publicUrl);
-        source.data = fixUrl(req, source.data, item.publicUrl);
+        if (typeof source.data == "string") {
+          source.data = fixUrl(req, source.data, item.publicUrl);
+        }
       }
       // mapbox-gl-js viewer cannot handle sprite urls with query
       if (styleJSON_.sprite) {
@@ -133,6 +135,7 @@ export const serve_style = {
       let data = source.data;
       if (
         data &&
+        (typeof data == "string") &&
         (data.startsWith('file://'))
       ) {
           source.data = 'local://files' + path.resolve('/', data.replace('file://', '').replace(options.paths.files, ''));
