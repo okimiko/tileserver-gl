@@ -71,7 +71,6 @@
     };
     {{/is_terrain}}
     {{#is_terrain}}
-
     var style = {
       version: 8,
       sources: {
@@ -148,7 +147,6 @@
       showInspectButton: false
     });
     map.addControl(inspect);
-
     map.on('styledata', function() {
       var layerList = document.getElementById('layerList');
       layerList.innerHTML = '';
