@@ -119,10 +119,10 @@ export const getTileUrls = (
     tileParams = `${tileSize}/{z}/{x}/{y}`;
   }
 
-  if (format && format != "") {
+  if (format && format != '') {
     format = `.${format}`;
   } else {
-    format = "";
+    format = '';
   }
 
   const uris = [];

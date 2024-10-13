@@ -513,13 +513,16 @@ function start(opts) {
 
       data.is_vector = tileJSON.format === 'pbf';
       if (!data.is_vector) {
-        if ((tileJSON.encoding === 'terrarium' || tileJSON.encoding === 'mapbox')) {
+        if (
+          tileJSON.encoding === 'terrarium' ||
+          tileJSON.encoding === 'mapbox'
+        ) {
           data.elevation_link = getTileUrls(
             req,
             tileJSON.tiles,
-            `data/${id}/elevation`
+            `data/${id}/elevation`,
           )[0];
-        };
+        }
         if (center) {
           const centerPx = mercator.px([center[0], center[1]], center[2]);
           data.thumbnail = `${center[2]}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
@@ -610,13 +613,16 @@ function start(opts) {
     if (!data) {
       return null;
     }
-    const is_terrain = ((data.tileJSON.encoding === 'terrarium' || data.tileJSON.encoding === 'mapbox') && (preview === "preview"));
+    const is_terrain =
+      (data.tileJSON.encoding === 'terrarium' ||
+        data.tileJSON.encoding === 'mapbox') &&
+      preview === 'preview';
     return {
       ...data,
       id,
-      use_maplibre: (data.tileJSON.format === 'pbf' || is_terrain),
+      use_maplibre: data.tileJSON.format === 'pbf' || is_terrain,
       is_terrain: is_terrain,
-      is_terrainrgb: (data.tileJSON.encoding === "mapbox"),
+      is_terrainrgb: data.tileJSON.encoding === 'mapbox',
       terrain_encoding: data.tileJSON.encoding,
     };
   });

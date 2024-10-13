@@ -174,8 +174,8 @@ export const serve_data = {
         }
 
         if (
-          item.source._info.encoding != "terrarium" &&
-          item.source._info.encoding != "mapbox"
+          item.source._info.encoding != 'terrarium' &&
+          item.source._info.encoding != 'mapbox'
         ) {
           return res.status(404).send('Missing encoding');
         }
@@ -263,20 +263,36 @@ export const serve_data = {
                   var green = imgdata.data[index + 1];
                   var blue = imgdata.data[index + 2];
                   let elevation;
-                  if (item.source._info.encoding == "mapbox") {
-                    elevation = -10000 + ((red * 256 * 256 + green * 256 + blue) * 0.1);
-                  } else if (item.source._info.encoding == "terrarium") {
-                    elevation = (red * 256 + green + blue / 256) - 32768;
+                  if (item.source._info.encoding == 'mapbox') {
+                    elevation =
+                      -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
+                  } else if (item.source._info.encoding == 'terrarium') {
+                    elevation = red * 256 + green + blue / 256 - 32768;
                   } else {
-                    elevation = "invalid encoding";
+                    elevation = 'invalid encoding';
                   }
                   //"index": index, "length": imgdata.data.length,
-                  return res.status(200).send({ "z": z, "x": xy[0], "y": xy[1], "red": red, "green": green, "blue": blue, "latitude": tileCenter[0], "longitude": tileCenter[1], "elevation": elevation });
+                  return res.status(200).send({
+                    z: z,
+                    x: xy[0],
+                    y: xy[1],
+                    red: red,
+                    green: green,
+                    blue: blue,
+                    latitude: tileCenter[0],
+                    longitude: tileCenter[1],
+                    elevation: elevation,
+                  });
                 };
-                image.onerror = err => { return res.status(500).header('Content-Type', 'text/plain').send(err.message); }
+                image.onerror = (err) => {
+                  return res
+                    .status(500)
+                    .header('Content-Type', 'text/plain')
+                    .send(err.message);
+                };
                 //image.onerror = err => { return res.status(200).header('Content-Type', 'image/webp').send(data); }
 
-                if (item.source._info.format == "webp") {
+                if (item.source._info.format == 'webp') {
                   const img = await sharp(data).toFormat('png').toBuffer();
                   image.src = img;
                 } else {
@@ -372,7 +388,7 @@ export const serve_data = {
       const mbw = await openMbTilesWrapper(inputFile);
       const info = await mbw.getInfo();
       source = mbw.getMbTiles();
-      info["encoding"] = params["encoding"];
+      info['encoding'] = params['encoding'];
       tileJSON['name'] = id;
       tileJSON['format'] = 'pbf';
 
