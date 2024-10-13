@@ -498,14 +498,6 @@ function start(opts) {
         )}/${center[0].toFixed(5)}`;
       }
 
-      data.is_vector = tileJSON.format === 'pbf';
-      if (!data.is_vector) {
-        if (center) {
-          const centerPx = mercator.px([center[0], center[1]], center[2]);
-          data.thumbnail = `${center[2]}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
-        }
-      }
-
       const tileSize = undefined;
       data.xyz_link = getTileUrls(
         req,
@@ -518,6 +510,21 @@ function start(opts) {
           pbf: options.pbfAlias,
         },
       )[0];
+
+      data.is_vector = tileJSON.format === 'pbf';
+      if (!data.is_vector) {
+        if ((tileJSON.encoding === 'terrarium' || tileJSON.encoding === 'mapbox')) {
+          data.elevation_link = getTileUrls(
+            req,
+            tileJSON.tiles,
+            `data/${id}/elevation`
+          )[0];
+        };
+        if (center) {
+          const centerPx = mercator.px([center[0], center[1]], center[2]);
+          data.thumbnail = `${center[2]}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
+        }
+      }
 
       if (data.filesize) {
         let suffix = 'kB';
