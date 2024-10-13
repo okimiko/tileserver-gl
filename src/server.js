@@ -595,18 +595,22 @@ function start(opts) {
     };
   });
 
-  serveTemplate('/data/:id/$', 'data', (req) => {
-    const { id } = req.params;
+  serveTemplate('/data/(:preview(preview)/)?:id/', 'data', (req) => {
+    const id = req.params.id;
+    const preview = req.params.preview || undefined;
     const data = serving.data[id];
 
     if (!data) {
       return null;
     }
-
+    const is_terrain = ((data.tileJSON.encoding === 'terrarium' || data.tileJSON.encoding === 'mapbox') && (preview === "preview"));
     return {
       ...data,
       id,
-      is_vector: data.tileJSON.format === 'pbf',
+      use_maplibre: (data.tileJSON.format === 'pbf' || is_terrain),
+      is_terrain: is_terrain,
+      is_terrainrgb: (data.tileJSON.encoding === "mapbox"),
+      terrain_encoding: data.tileJSON.encoding,
     };
   });
 
