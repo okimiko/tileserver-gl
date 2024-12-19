@@ -605,7 +605,7 @@ function start(opts) {
     };
   });
 
-  serveTemplate('/data/(:preview(preview)/)?:id/', 'data', (req) => {
+  serveTemplate('^/data/(:preview(preview)/)?:id/$', 'data', (req) => {
     const id = req.params.id;
     const preview = req.params.preview || undefined;
     const data = serving.data[id];
