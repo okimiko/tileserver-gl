@@ -123,10 +123,11 @@ describe('Static endpoints', function () {
       });
 
       describe('different parameters', function () {
-        testStatic(prefix, '-180,-90,180,90/20x20', 'png', 200, 2);
+        //invalid center
+        testStatic(prefix, '-180,-90,180,90/20x20', 'png', 400, 2);
         testStatic(prefix, '0,0,1,1/200x200', 'png', 200, 3);
-
-        testStatic(prefix, '-280,-80,0,80/280x160', 'png', 200);
+        //invalid center
+        testStatic(prefix, '-280,-80,0,80/280x160', 'png', 400);
       });
     });
 
