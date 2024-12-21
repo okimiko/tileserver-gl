@@ -11,6 +11,8 @@ import SphericalMercator from '@mapbox/sphericalmercator';
 import { Image, createCanvas } from 'canvas';
 import sharp from 'sharp';
 
+import { LocalDemManager } from './contour.js';
+import { fixTileJSONCenter, getTileUrls, isValidHttpUrl } from './utils.js';
 import {
   fixTileJSONCenter,
   getTileUrls,
