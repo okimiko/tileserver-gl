@@ -116,6 +116,8 @@ export const serve_data = {
             z,
             x,
             y,
+            { levels: [1000] },
+            new AbortController(),
           );
         }
       }
