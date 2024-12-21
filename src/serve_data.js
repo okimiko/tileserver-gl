@@ -407,6 +407,7 @@ export const serve_data = {
       sourceType = 'pmtiles';
       const metadata = await getPMtilesInfo(source);
 
+      tileJSON['encoding'] = params['encoding'];
       tileJSON['name'] = id;
       tileJSON['format'] = 'pbf';
       Object.assign(tileJSON, metadata);
