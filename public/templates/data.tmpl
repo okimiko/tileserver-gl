@@ -118,7 +118,18 @@
       maxPitch: 85,
       style: style
     });
-    map.addControl(new maplibregl.NavigationControl());
+    map.addControl(new maplibregl.NavigationControl({
+      visualizePitch: true,
+      showZoom: true,
+      showCompass: true
+    }));
+    {{#is_terrain}}
+    map.addControl(
+      new maplibregl.TerrainControl({
+        source: "terrain",
+      })
+    );
+    {{/is_terrain}}
     {{^is_terrain}}
     var inspect = new MaplibreInspect({
       showInspectMap: true,
