@@ -120,23 +120,15 @@
       maxPitch: 85,
       style: style
     });
-
     map.addControl(new maplibregl.NavigationControl({
       visualizePitch: true,
       showZoom: true,
       showCompass: true
     }));
     {{#is_terrain}}
-
     map.addControl(
       new maplibregl.TerrainControl({
         source: "terrain",
-      })
-    );
-
-    map.addControl(
-      new ElevationInfoControl({
-        url: "{{public_url}}data/{{id}}/elevation/{z}/{x}/{y}"
       })
     );
     {{/is_terrain}}
