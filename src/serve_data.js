@@ -264,8 +264,6 @@ export const serve_data = {
           }
           if (data == null) return res.status(204).send();
           if (!data) return res.status(404).send('Not found');
-          if (tileJSON.format === 'pbf')
-            return res.status(400).send('Invalid format');
 
           const image = new Image();
           await new Promise(async (resolve, reject) => {
