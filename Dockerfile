@@ -2,6 +2,8 @@ FROM ubuntu:jammy AS builder
 
 ENV NODE_ENV="production"
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
@@ -58,6 +60,8 @@ ENV \
     NODE_ENV="production" \
     CHOKIDAR_USEPOLLING=1 \
     CHOKIDAR_INTERVAL=500
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     groupadd -r node && \
