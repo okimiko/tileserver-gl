@@ -1,6 +1,6 @@
 FROM ubuntu:jammy AS builder
 
-ENV NODE_ENV="production"
+ENV NODE_ENV="devel"
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
