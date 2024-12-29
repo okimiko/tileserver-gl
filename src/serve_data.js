@@ -18,7 +18,13 @@ import { gunzipP, gzipP } from './promises.js';
 import { openMbTilesWrapper } from './mbtiles_wrapper.js';
 
 export const serve_data = {
-  init: (options, repo) => {
+  /**
+   * Initializes the serve_data module.
+   * @param {object} options Configuration options.
+   * @param {object} repo Repository object.
+   * @returns {express.Application} The initialized Express application.
+   */
+  init: function (options, repo) {
     const app = express().disable('x-powered-by');
 
     app.get('/:id/:z/:x/:y.:format', async (req, res) => {
@@ -181,7 +187,16 @@ export const serve_data = {
 
     return app;
   },
-  add: async (options, repo, params, id, publicUrl) => {
+  /**
+   * Adds a new data source to the repository.
+   * @param {object} options Configuration options.
+   * @param {object} repo Repository object.
+   * @param {object} params Parameters object.
+   * @param {string} id ID of the data source.
+   * @param {string} publicUrl Public URL of the data.
+   * @returns {Promise<void>}
+   */
+  add: async function (options, repo, params, id, publicUrl) {
     let inputFile;
     let inputType;
     if (params.pmtiles) {
