@@ -4,7 +4,13 @@ import express from 'express';
 
 import { getFontsPbf, listFonts } from './utils.js';
 
-export const serve_font = async (options, allowedFonts) => {
+/**
+ * Initializes and returns an Express app that serves font files.
+ * @param {object} options - Configuration options for the server.
+ * @param {object} allowedFonts - An object containing allowed fonts.
+ * @returns {Promise<express.Application>} - A promise that resolves to the Express app.
+ */
+export async function serve_font(options, allowedFonts) {
   const app = express().disable('x-powered-by');
 
   const lastModified = new Date().toUTCString();
@@ -45,4 +51,4 @@ export const serve_font = async (options, allowedFonts) => {
   const fonts = await listFonts(options.paths.fonts);
   Object.assign(existingFonts, fonts);
   return app;
-};
+}
