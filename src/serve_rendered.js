@@ -133,23 +133,31 @@ function createEmptyResponse(format, color, callback) {
   }
 
   // create an "empty" response image
-  color = new Color(color);
-  const array = color.array();
-  const channels = array.length === 4 && format !== 'jpeg' ? 4 : 3;
-  sharp(Buffer.from(array), {
-    raw: {
-      width: 1,
-      height: 1,
-      channels,
-    },
-  })
-    .toFormat(format)
-    .toBuffer((err, buffer, info) => {
-      if (!err) {
+  try {
+    color = new Color(color);
+    const array = color.array();
+    const channels = array.length === 4 && format !== 'jpeg' ? 4 : 3;
+    sharp(Buffer.from(array), {
+      raw: {
+        width: 1,
+        height: 1,
+        channels,
+      },
+    })
+      .toFormat(format)
+      .toBuffer((err, buffer, info) => {
+        if (err) {
+          console.error('Error creating image with Sharp:', err);
+          callback(err, null);
+          return;
+        }
         cachedEmptyResponses[cacheKey] = buffer;
-      }
-      callback(null, { data: buffer });
-    });
+        callback(null, { data: buffer });
+      });
+  } catch (error) {
+    console.error('Error during image processing setup:', error);
+    callback(error, null);
+  }
 }
 
 /**
