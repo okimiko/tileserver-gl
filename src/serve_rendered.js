@@ -68,7 +68,13 @@ const httpTester = /^https?:\/\//i;
 
 const mercator = new SphericalMercator();
 
-const parseScale = (scale, maxScaleDigit = 9) => {
+/**
+ * Parses a scale string to a number.
+ * @param {string} scale The scale string (e.g., '2x', '4x').
+ * @param {number} maxScaleDigit Maximum allowed scale digit.
+ * @returns {number|null} The parsed scale as a number or null if invalid.
+ */
+function parseScale(scale, maxScaleDigit = 9) {
   if (scale === undefined) {
     return 1;
   }
@@ -80,7 +86,7 @@ const parseScale = (scale, maxScaleDigit = 9) => {
   }
 
   return parseInt(scale.slice(0, -1), 10);
-};
+}
 
 mlgl.on('message', (e) => {
   if (e.severity === 'WARNING' || e.severity === 'ERROR') {
@@ -111,6 +117,7 @@ const cachedEmptyResponses = {
  * @param {string} format The format (a sharp format or 'pbf').
  * @param {string} color The background color (or empty string for transparent).
  * @param {Function} callback The mlgl callback.
+ * @returns {void}
  */
 function createEmptyResponse(format, color, callback) {
   if (!format || format === 'pbf') {
@@ -163,11 +170,12 @@ function createEmptyResponse(format, color, callback) {
 /**
  * Parses coordinate pair provided to pair of floats and ensures the resulting
  * pair is a longitude/latitude combination depending on lnglat query parameter.
- * @param {List} coordinatePair Coordinate pair.
+ * @param {Array<string>} coordinatePair Coordinate pair.
  * @param coordinates
  * @param {object} query Request query parameters.
+ * @returns {Array<number>|null} Parsed coordinate pair as [longitude, latitude] or null if invalid
  */
-const parseCoordinatePair = (coordinates, query) => {
+function parseCoordinatePair(coordinates, query) {
   const firstCoordinate = parseFloat(coordinates[0]);
   const secondCoordinate = parseFloat(coordinates[1]);
 
@@ -183,15 +191,16 @@ const parseCoordinatePair = (coordinates, query) => {
   }
 
   return [firstCoordinate, secondCoordinate];
-};
+}
 
 /**
  * Parses a coordinate pair from query arguments and optionally transforms it.
- * @param {List} coordinatePair Coordinate pair.
+ * @param {Array<string>} coordinatePair Coordinate pair.
  * @param {object} query Request query parameters.
  * @param {Function} transformer Optional transform function.
+ * @returns {Array<number>|null} Transformed coordinate pair or null if invalid.
  */
-const parseCoordinates = (coordinatePair, query, transformer) => {
+function parseCoordinates(coordinatePair, query, transformer) {
   const parsedCoordinates = parseCoordinatePair(coordinatePair, query);
 
   // Transform coordinates
@@ -200,14 +209,15 @@ const parseCoordinates = (coordinatePair, query, transformer) => {
   }
 
   return parsedCoordinates;
-};
+}
 
 /**
  * Parses paths provided via query into a list of path objects.
  * @param {object} query Request query parameters.
  * @param {Function} transformer Optional transform function.
+ * @returns {Array<Array<Array<number>>>} Array of paths.
  */
-const extractPathsFromQuery = (query, transformer) => {
+function extractPathsFromQuery(query, transformer) {
   // Initiate paths array
   const paths = [];
   // Return an empty list if no paths have been provided
@@ -259,17 +269,18 @@ const extractPathsFromQuery = (query, transformer) => {
     }
   }
   return paths;
-};
+}
 
 /**
  * Parses marker options provided via query and sets corresponding attributes
  * on marker object.
  * Options adhere to the following format
  * [optionName]:[optionValue]
- * @param {List[String]} optionsList List of option strings.
+ * @param {Array<string>} optionsList List of option strings.
  * @param {object} marker Marker object to configure.
+ * @returns {void}
  */
-const parseMarkerOptions = (optionsList, marker) => {
+function parseMarkerOptions(optionsList, marker) {
   for (const options of optionsList) {
     const optionParts = options.split(':');
     // Ensure we got an option name and value
@@ -296,15 +307,16 @@ const parseMarkerOptions = (optionsList, marker) => {
         break;
     }
   }
-};
+}
 
 /**
  * Parses markers provided via query into a list of marker objects.
  * @param {object} query Request query parameters.
  * @param {object} options Configuration options.
  * @param {Function} transformer Optional transform function.
+ * @returns {Array<object>} An array of marker objects.
  */
-const extractMarkersFromQuery = (query, options, transformer) => {
+function extractMarkersFromQuery(query, options, transformer) {
   // Return an empty list if no markers have been provided
   if (!query.marker) {
     return [];
@@ -380,9 +392,16 @@ const extractMarkersFromQuery = (query, options, transformer) => {
     markers.push(marker);
   }
   return markers;
-};
-
-const calcZForBBox = (bbox, w, h, query) => {
+}
+/**
+ * Calculates the zoom level for a given bounding box.
+ * @param {Array<number>} bbox Bounding box as [minx, miny, maxx, maxy].
+ * @param {number} w Width of the image.
+ * @param {number} h Height of the image.
+ * @param {object} query Request query parameters.
+ * @returns {number} Calculated zoom level.
+ */
+function calcZForBBox(bbox, w, h, query) {
   let z = 25;
 
   const padding = query.padding !== undefined ? parseFloat(query.padding) : 0.1;
@@ -401,9 +420,27 @@ const calcZForBBox = (bbox, w, h, query) => {
   z = Math.max(Math.log(Math.max(w, h) / 256) / Math.LN2, Math.min(25, z));
 
   return z;
-};
+}
 
-const respondImage = (
+/**
+ * Responds with an image.
+ * @param {object} options Configuration options.
+ * @param {object} item Item object containing map and other information.
+ * @param {number} z Zoom level.
+ * @param {number} lon Longitude of the center.
+ * @param {number} lat Latitude of the center.
+ * @param {number} bearing Map bearing.
+ * @param {number} pitch Map pitch.
+ * @param {number} width Width of the image.
+ * @param {number} height Height of the image.
+ * @param {number} scale Scale factor.
+ * @param {string} format Image format.
+ * @param {object} res Express response object.
+ * @param {Buffer|null} overlay Optional overlay image.
+ * @param {string} mode Rendering mode ('tile' or 'static').
+ * @returns {Promise<void>}
+ */
+const respondImage = async (
   options,
   item,
   z,
@@ -451,7 +488,7 @@ const respondImage = (
   } else {
     pool = item.map.renderersStatic[scale];
   }
-  pool.acquire((err, renderer) => {
+  pool.acquire(async (err, renderer) => {
     // For 512px tiles, use the actual maplibre-native zoom. For 256px tiles, use zoom - 1
     let mlglZ;
     if (width === 512) {
@@ -591,7 +628,13 @@ const existingFonts = {};
 let maxScaleFactor = 2;
 
 export const serve_rendered = {
-  init: async (options, repo) => {
+  /**
+   * Initializes the serve_rendered module.
+   * @param {object} options Configuration options.
+   * @param {object} repo Repository object.
+   * @returns {Promise<express.Application>} A promise that resolves to the Express app.
+   */
+  init: async function (options, repo) {
     maxScaleFactor = Math.min(Math.floor(options.maxScaleFactor || 3), 9);
     const app = express().disable('x-powered-by');
 
@@ -650,8 +693,8 @@ export const serve_rendered = {
 
             // prettier-ignore
             return await respondImage(
-            options, item, z, tileCenter[0], tileCenter[1], 0, 0, tileSize, tileSize, scale, format, res,
-          );
+              options, item, z, tileCenter[0], tileCenter[1], 0, 0, tileSize, tileSize, scale, format, res,
+            );
           }
         } catch (e) {
           console.log(e);
@@ -864,7 +907,17 @@ export const serve_rendered = {
     Object.assign(existingFonts, fonts);
     return app;
   },
-  add: async (options, repo, params, id, publicUrl, dataResolver) => {
+  /**
+   * Adds a new item to the repository.
+   * @param {object} options Configuration options.
+   * @param {object} repo Repository object.
+   * @param {object} params Parameters object.
+   * @param {string} id ID of the item.
+   * @param {string} publicUrl Public URL.
+   * @param {Function} dataResolver Function to resolve data.
+   * @returns {Promise<void>}
+   */
+  add: async function (options, repo, params, id, publicUrl, dataResolver) {
     const map = {
       renderers: [],
       renderersStatic: [],
@@ -873,7 +926,21 @@ export const serve_rendered = {
     };
 
     let styleJSON;
+    /**
+     * Creates a pool of renderers.
+     * @param {number} ratio Pixel ratio
+     * @param {string} mode Rendering mode ('tile' or 'static').
+     * @param {number} min Minimum pool size.
+     * @param {number} max Maximum pool size.
+     * @returns {object} The created pool
+     */
     const createPool = (ratio, mode, min, max) => {
+      /**
+       * Creates a renderer
+       * @param {number} ratio Pixel ratio
+       * @param {Function} createCallback Function that returns the renderer when created
+       *  @returns {void}
+       */
       const createRenderer = (ratio, createCallback) => {
         const renderer = new mlgl.Map({
           mode,
@@ -1278,7 +1345,13 @@ export const serve_rendered = {
       );
     }
   },
-  remove: (repo, id) => {
+  /**
+   * Removes an item from the repository.
+   * @param {object} repo Repository object.
+   * @param {string} id ID of the item to remove.
+   * @returns {void}
+   */
+  remove: function (repo, id) {
     const item = repo[id];
     if (item) {
       item.map.renderers.forEach((pool) => {
