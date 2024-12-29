@@ -12,15 +12,26 @@ import { fixUrl, allowedOptions } from './utils.js';
 const httpTester = /^https?:\/\//i;
 const allowedSpriteFormats = allowedOptions(['png', 'json']);
 
-const allowedSpriteScales = (scale) => {
+/**
+ * Checks and formats sprite scale
+ * @param {string} scale string containing the scale
+ * @returns {string} formated string for the scale or empty string if scale is invalid
+ */
+function allowedSpriteScales(scale) {
   if (!scale) return ''; // Default to 1 if no scale provided
   const match = scale.match(/(\d+)x/); // Match one or more digits before 'x'
   const parsedScale = match ? parseInt(match[1], 10) : 1; // Parse the number, or default to 1 if no match
   return '@' + Math.min(parsedScale, 3) + 'x';
-};
+}
 
 export const serve_style = {
-  init: (options, repo) => {
+  /**
+   * Initializes the serve_style module.
+   * @param {object} options Configuration options.
+   * @param {object} repo Repository object.
+   * @returns {express.Application} The initialized Express application.
+   */
+  init: function (options, repo) {
     const app = express().disable('x-powered-by');
 
     app.get('/:id/style.json', (req, res, next) => {
@@ -93,10 +104,35 @@ export const serve_style = {
 
     return app;
   },
-  remove: (repo, id) => {
+  /**
+   * Removes an item from the repository.
+   * @param {object} repo Repository object.
+   * @param {string} id ID of the item to remove.
+   * @returns {void}
+   */
+  remove: function (repo, id) {
     delete repo[id];
   },
-  add: (options, repo, params, id, publicUrl, reportTiles, reportFont) => {
+  /**
+   * Adds a new style to the repository.
+   * @param {object} options Configuration options.
+   * @param {object} repo Repository object.
+   * @param {object} params Parameters object containing style path
+   * @param {string} id ID of the style.
+   * @param {string} publicUrl Public URL of the data.
+   * @param {Function} reportTiles Function for reporting tile sources.
+   * @param {Function} reportFont Function for reporting font usage
+   * @returns {boolean} true if add is succesful
+   */
+  add: function (
+    options,
+    repo,
+    params,
+    id,
+    publicUrl,
+    reportTiles,
+    reportFont,
+  ) {
     const styleFile = path.resolve(options.paths.styles, params.style);
 
     let styleFileData;
