@@ -18,9 +18,9 @@ const allowedSpriteFormats = allowedOptions(['png', 'json']);
  * @returns {string} formated string for the scale or empty string if scale is invalid
  */
 function allowedSpriteScales(scale) {
-  if (!scale) return ''; // Default to 1 if no scale provided
-  const match = scale.match(/(\d+)x/); // Match one or more digits before 'x'
-  const parsedScale = match ? parseInt(match[1], 10) : 1; // Parse the number, or default to 1 if no match
+  if (!scale) return '';
+  const match = scale.match(/(\d+)x/); 
+  const parsedScale = match ? parseInt(match[1], 10) : 1;
   return '@' + Math.min(parsedScale, 3) + 'x';
 }
 
