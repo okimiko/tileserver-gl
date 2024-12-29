@@ -34,8 +34,9 @@ const serve_rendered = (
 ).serve_rendered;
 
 /**
- *
- * @param opts
+ *  Starts the server.
+ * @param {object} opts - Configuration options for the server.
+ * @returns {Promise<object>} - A promise that resolves to the server object.
  */
 async function start(opts) {
   console.log('Starting server');
@@ -116,8 +117,9 @@ async function start(opts) {
    * Recursively get all files within a directory.
    * Inspired by https://stackoverflow.com/a/45130990/10133863
    * @param {string} directory Absolute path to a directory to get files from.
+   * @returns {Promise<string[]>} - A promise that resolves to an array of file paths relative to the icon directory.
    */
-  const getFiles = async (directory) => {
+  async function getFiles(directory) {
     // Fetch all entries of the directory and attach type information
     const dirEntries = await fs.promises.readdir(directory, {
       withFileTypes: true,
@@ -136,7 +138,7 @@ async function start(opts) {
 
     // Flatten the list of files to a single array
     return files.flat();
-  };
+  }
 
   // Load all available icons into a settings object
   startupPromises.push(
@@ -169,8 +171,15 @@ async function start(opts) {
       }),
     );
   }
-
-  const addStyle = (id, item, allowMoreData, reportFonts) => {
+  /**
+   * Adds a style to the server.
+   * @param {string} id - The ID of the style.
+   * @param {object} item - The style configuration object.
+   * @param {boolean} allowMoreData - Whether to allow adding more data sources.
+   * @param {boolean} reportFonts - Whether to report fonts.
+   * @returns {void}
+   */
+  function addStyle(id, item, allowMoreData, reportFonts) {
     let success = true;
     if (item.serve_data !== false) {
       success = serve_style.add(
@@ -261,7 +270,7 @@ async function start(opts) {
         item.serve_rendered = false;
       }
     }
-  };
+  }
 
   for (const id of Object.keys(config.styles || {})) {
     const item = config.styles[id];
@@ -272,13 +281,11 @@ async function start(opts) {
 
     addStyle(id, item, true, true);
   }
-
   startupPromises.push(
     serve_font(options, serving.fonts).then((sub) => {
       app.use('/', sub);
     }),
   );
-
   for (const id of Object.keys(data)) {
     const item = data[id];
     const fileType = Object.keys(data[id])[0];
@@ -288,12 +295,10 @@ async function start(opts) {
       );
       continue;
     }
-
     startupPromises.push(
       serve_data.add(options, serving.data, item, id, opts.publicUrl),
     );
   }
-
   if (options.serveAllStyles) {
     fs.readdir(options.paths.styles, { withFileTypes: true }, (err, files) => {
       if (err) {
@@ -333,7 +338,6 @@ async function start(opts) {
       }
     });
   }
-
   app.get('/styles.json', (req, res, next) => {
     const result = [];
     const query = req.query.key
@@ -354,7 +358,15 @@ async function start(opts) {
     res.send(result);
   });
 
-  const addTileJSONs = (arr, req, type, tileSize) => {
+  /**
+   * Adds TileJSON metadata to an array.
+   * @param {Array} arr - The array to add TileJSONs to
+   * @param {object} req - The express request object.
+   * @param {string} type - The type of resource
+   * @param {number} tileSize - The tile size.
+   * @returns {Array} - An array of TileJSON objects.
+   */
+  function addTileJSONs(arr, req, type, tileSize) {
     for (const id of Object.keys(serving[type])) {
       const info = clone(serving[type][id].tileJSON);
       let path = '';
@@ -377,7 +389,7 @@ async function start(opts) {
       arr.push(info);
     }
     return arr;
-  };
+  }
 
   app.get('{/:tileSize}/rendered.json', (req, res, next) => {
     const tileSize = parseInt(req.params.tileSize, 10) || undefined;
@@ -403,7 +415,14 @@ async function start(opts) {
   app.use('/', express.static(path.join(__dirname, '../public/resources')));
 
   const templates = path.join(__dirname, '../public/templates');
-  const serveTemplate = (urlPath, template, dataGetter) => {
+  /**
+   * Serves a Handlebars template.
+   * @param {string} urlPath - The URL path to serve the template at
+   * @param {string} template - The name of the template file
+   * @param {Function} dataGetter - A function to get data to be passed to the template.
+   *  @returns {void}
+   */
+  function serveTemplate(urlPath, template, dataGetter) {
     let templateFile = `${templates}/${template}.tmpl`;
     if (template === 'index') {
       if (options.frontPage === false) {
@@ -444,8 +463,7 @@ async function start(opts) {
       console.error(`Error reading template file: ${templateFile}`, err);
       throw new Error(`Template not found: ${err.message}`); //throw an error so that the server doesnt start
     }
-  };
-
+  }
   serveTemplate('/', 'index', (req) => {
     let styles = {};
     for (const id of Object.keys(serving.styles || {})) {
@@ -478,7 +496,6 @@ async function start(opts) {
 
       styles[id] = style;
     }
-
     let datas = {};
     for (const id of Object.keys(serving.data || {})) {
       let data = Object.assign({}, serving.data[id]);
@@ -526,10 +543,8 @@ async function start(opts) {
         }
         data.formatted_filesize = `${size.toFixed(2)} ${suffix}`;
       }
-
       datas[id] = data;
     }
-
     return {
       styles: Object.keys(styles).length ? styles : null,
       data: Object.keys(datas).length ? datas : null,
@@ -543,7 +558,6 @@ async function start(opts) {
     if (!style) {
       return null;
     }
-
     return {
       ...style,
       id,
@@ -591,7 +605,6 @@ async function start(opts) {
     if (!data) {
       return null;
     }
-
     return {
       ...data,
       id,
@@ -638,6 +651,7 @@ async function start(opts) {
 /**
  * Stop the server gracefully
  * @param {string} signal Name of the received signal
+ * @returns {void}
  */
 function stopGracefully(signal) {
   console.log(`Caught signal ${signal}, stopping gracefully`);
@@ -645,8 +659,9 @@ function stopGracefully(signal) {
 }
 
 /**
- *
- * @param opts
+ * Starts and manages the server
+ * @param {object} opts - Configuration options for the server.
+ * @returns {Promise<object>} - A promise that resolves to the running server
  */
 export async function server(opts) {
   const running = await start(opts);
@@ -669,6 +684,5 @@ export async function server(opts) {
       running.app = restarted.app;
     });
   });
-
   return running;
 }
