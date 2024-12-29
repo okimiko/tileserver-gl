@@ -37,7 +37,7 @@ const serve_rendered = (
  *
  * @param opts
  */
-function start(opts) {
+async function start(opts) {
   console.log('Starting server');
 
   const app = express().disable('x-powered-by');
@@ -73,7 +73,7 @@ function start(opts) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (e) {
       console.log('ERROR: Config file not found or invalid!');
-      console.log('       See README.md for instructions and sample data.');
+      console.log('    See README.md for instructions and sample data.');
       process.exit(1);
     }
   }
@@ -379,14 +379,14 @@ function start(opts) {
     return arr;
   };
 
-  app.get('/(:tileSize(256|512)/)?rendered.json', (req, res, next) => {
+  app.get('{/:tileSize}/rendered.json', (req, res, next) => {
     const tileSize = parseInt(req.params.tileSize, 10) || undefined;
     res.send(addTileJSONs([], req, 'rendered', tileSize));
   });
-  app.get('/data.json', (req, res, next) => {
+  app.get('/data.json', (req, res) => {
     res.send(addTileJSONs([], req, 'data', undefined));
   });
-  app.get('/(:tileSize(256|512)/)?index.json', (req, res, next) => {
+  app.get('{/:tileSize}/index.json', (req, res, next) => {
     const tileSize = parseInt(req.params.tileSize, 10) || undefined;
     res.send(
       addTileJSONs(
@@ -415,44 +415,38 @@ function start(opts) {
         templateFile = path.resolve(paths.root, options.frontPage);
       }
     }
-    startupPromises.push(
-      new Promise((resolve, reject) => {
-        fs.readFile(templateFile, (err, content) => {
-          if (err) {
-            err = new Error(`Template not found: ${err.message}`);
-            reject(err);
-            return;
+    try {
+      const content = fs.readFileSync(templateFile, 'utf-8');
+      const compiled = handlebars.compile(content.toString());
+      app.get(urlPath, (req, res) => {
+        console.log(`Serving template at path: ${urlPath}`);
+        let data = {};
+        if (dataGetter) {
+          data = dataGetter(req);
+          if (!data) {
+            console.error(`Data getter for ${template} returned null`);
+            return res.status(404).send('Not found');
           }
-          const compiled = handlebars.compile(content.toString());
-
-          app.use(urlPath, (req, res, next) => {
-            let data = {};
-            if (dataGetter) {
-              data = dataGetter(req);
-              if (!data) {
-                return res.status(404).send('Not found');
-              }
-            }
-            data['server_version'] =
-              `${packageJson.name} v${packageJson.version}`;
-            data['public_url'] = opts.publicUrl || '/';
-            data['is_light'] = isLight;
-            data['key_query_part'] = req.query.key
-              ? `key=${encodeURIComponent(req.query.key)}&amp;`
-              : '';
-            data['key_query'] = req.query.key
-              ? `?key=${encodeURIComponent(req.query.key)}`
-              : '';
-            if (template === 'wmts') res.set('Content-Type', 'text/xml');
-            return res.status(200).send(compiled(data));
-          });
-          resolve();
-        });
-      }),
-    );
+        }
+        data['server_version'] = `${packageJson.name} v${packageJson.version}`;
+        data['public_url'] = opts.publicUrl || '/';
+        data['is_light'] = isLight;
+        data['key_query_part'] = req.query.key
+          ? `key=${encodeURIComponent(req.query.key)}&amp;`
+          : '';
+        data['key_query'] = req.query.key
+          ? `?key=${encodeURIComponent(req.query.key)}`
+          : '';
+        if (template === 'wmts') res.set('Content-Type', 'text/xml');
+        return res.status(200).send(compiled(data));
+      });
+    } catch (err) {
+      console.error(`Error reading template file: ${templateFile}`, err);
+      throw new Error(`Template not found: ${err.message}`); //throw an error so that the server doesnt start
+    }
   };
 
-  serveTemplate('/$', 'index', (req) => {
+  serveTemplate('/', 'index', (req) => {
     let styles = {};
     for (const id of Object.keys(serving.styles || {})) {
       let style = {
@@ -552,7 +546,7 @@ function start(opts) {
     };
   });
 
-  serveTemplate('/styles/:id/$', 'viewer', (req) => {
+  serveTemplate('/styles/:id/', 'viewer', (req) => {
     const { id } = req.params;
     const style = clone(((serving.styles || {})[id] || {}).styleJSON);
 
@@ -569,11 +563,6 @@ function start(opts) {
     };
   });
 
-  /*
-  app.use('/rendered/:id/$', function(req, res, next) {
-    return res.redirect(301, '/styles/' + req.params.id + '/');
-  });
-  */
   serveTemplate('/styles/:id/wmts.xml', 'wmts', (req) => {
     const { id } = req.params;
     const wmts = clone((serving.styles || {})[id]);
@@ -605,9 +594,8 @@ function start(opts) {
     };
   });
 
-  serveTemplate('^/data/(:preview(preview)/)?:id/$', 'data', (req) => {
-    const id = req.params.id;
-    const preview = req.params.preview || undefined;
+  serveTemplate('^/data{/:view}/:id/', 'data', (req) => {
+    const { id, view } = req.params;
     const data = serving.data[id];
 
     if (!data) {
@@ -616,7 +604,7 @@ function start(opts) {
     const is_terrain =
       (data.tileJSON.encoding === 'terrarium' ||
         data.tileJSON.encoding === 'mapbox') &&
-      preview === 'preview';
+      view === 'preview';
     return {
       ...data,
       id,
@@ -633,7 +621,7 @@ function start(opts) {
     startupComplete = true;
   });
 
-  app.get('/health', (req, res, next) => {
+  app.get('/health', (req, res) => {
     if (startupComplete) {
       return res.status(200).send('OK');
     } else {
@@ -676,8 +664,8 @@ function stopGracefully(signal) {
  *
  * @param opts
  */
-export function server(opts) {
-  const running = start(opts);
+export async function server(opts) {
+  const running = await start(opts);
 
   running.startupPromise.catch((err) => {
     console.error(err.message);
