@@ -10,8 +10,14 @@ import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import { fixUrl, allowedOptions } from './utils.js';
 
 const httpTester = /^https?:\/\//i;
-const allowedSpriteScales = allowedOptions(['', '@2x', '@3x']);
 const allowedSpriteFormats = allowedOptions(['png', 'json']);
+
+const allowedSpriteScales = (scale) => {
+  if (!scale) return ''; // Default to 1 if no scale provided
+  const match = scale.match(/(\d+)x/); // Match one or more digits before 'x'
+  const parsedScale = match ? parseInt(match[1], 10) : 1; // Parse the number, or default to 1 if no match
+  return '@' + Math.min(parsedScale, 3) + 'x';
+};
 
 export const serve_style = {
   init: (options, repo) => {
@@ -46,14 +52,18 @@ export const serve_style = {
       return res.send(styleJSON_);
     });
 
-    app.get(
-      '/:id/sprite(/:spriteID)?:scale(@[23]x)?.:format([\\w]+)',
-      (req, res, next) => {
-        const { spriteID = 'default', id } = req.params;
-        const scale = allowedSpriteScales(req.params.scale) || '';
-        const format = allowedSpriteFormats(req.params.format);
-
-        if (format) {
+    app.get(`/:id/:sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
+      console.log(req.params);
+      const { spriteID = 'default', id, format } = req.params;
+      const scale = allowedSpriteScales(req.params.scale);
+      try {
+        if (
+          !allowedSpriteFormats(format) ||
+          ((id == 256 || id == 512) && format === 'json')
+        ) {
+          //Workaround for {/:tileSize}/:id.json' and /styles/:id/wmts.xml
+          next('route');
+        } else {
           const item = repo[id];
           const sprite = item.spritePaths.find(
             (sprite) => sprite.id === spriteID,
@@ -74,11 +84,12 @@ export const serve_style = {
           } else {
             return res.status(400).send('Bad Sprite ID or Scale');
           }
-        } else {
-          return res.status(400).send('Bad Sprite Format');
         }
-      },
-    );
+      } catch (e) {
+        console.log(e);
+        next('route');
+      }
+    });
 
     return app;
   },

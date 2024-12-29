@@ -21,148 +21,144 @@ export const serve_data = {
   init: (options, repo) => {
     const app = express().disable('x-powered-by');
 
-    app.get(
-      '/:id/:z(\\d+)/:x(\\d+)/:y(\\d+).:format([\\w.]+)',
-      async (req, res, next) => {
-        const item = repo[req.params.id];
-        if (!item) {
-          return res.sendStatus(404);
-        }
-        const tileJSONFormat = item.tileJSON.format;
-        const z = req.params.z | 0;
-        const x = req.params.x | 0;
-        const y = req.params.y | 0;
-        let format = req.params.format;
-        if (format === options.pbfAlias) {
-          format = 'pbf';
-        }
-        if (
-          format !== tileJSONFormat &&
-          !(format === 'geojson' && tileJSONFormat === 'pbf')
-        ) {
-          return res.status(404).send('Invalid format');
-        }
-        if (
-          z < item.tileJSON.minzoom ||
-          0 ||
-          x < 0 ||
-          y < 0 ||
-          z > item.tileJSON.maxzoom ||
-          x >= Math.pow(2, z) ||
-          y >= Math.pow(2, z)
-        ) {
-          return res.status(404).send('Out of bounds');
-        }
-        if (item.sourceType === 'pmtiles') {
-          let tileinfo = await getPMtilesTile(item.source, z, x, y);
-          if (tileinfo == undefined || tileinfo.data == undefined) {
-            return res.status(404).send('Not found');
-          } else {
-            let data = tileinfo.data;
-            let headers = tileinfo.header;
-            if (tileJSONFormat === 'pbf') {
-              if (options.dataDecoratorFunc) {
-                data = options.dataDecoratorFunc(id, 'data', data, z, x, y);
-              }
+    app.get('/:id/:z/:x/:y.:format', async (req, res) => {
+      const item = repo[req.params.id];
+      if (!item) {
+        return res.sendStatus(404);
+      }
+      const tileJSONFormat = item.tileJSON.format;
+      const z = req.params.z | 0;
+      const x = req.params.x | 0;
+      const y = req.params.y | 0;
+      let format = req.params.format;
+      if (format === options.pbfAlias) {
+        format = 'pbf';
+      }
+      if (
+        format !== tileJSONFormat &&
+        !(format === 'geojson' && tileJSONFormat === 'pbf')
+      ) {
+        return res.status(404).send('Invalid format');
+      }
+      if (
+        z < item.tileJSON.minzoom ||
+        0 ||
+        x < 0 ||
+        y < 0 ||
+        z > item.tileJSON.maxzoom ||
+        x >= Math.pow(2, z) ||
+        y >= Math.pow(2, z)
+      ) {
+        return res.status(404).send('Out of bounds');
+      }
+      if (item.sourceType === 'pmtiles') {
+        let tileinfo = await getPMtilesTile(item.source, z, x, y);
+        if (tileinfo == undefined || tileinfo.data == undefined) {
+          return res.status(404).send('Not found');
+        } else {
+          let data = tileinfo.data;
+          let headers = tileinfo.header;
+          if (tileJSONFormat === 'pbf') {
+            if (options.dataDecoratorFunc) {
+              data = options.dataDecoratorFunc(id, 'data', data, z, x, y);
             }
-            if (format === 'pbf') {
-              headers['Content-Type'] = 'application/x-protobuf';
-            } else if (format === 'geojson') {
-              headers['Content-Type'] = 'application/json';
-              const tile = new VectorTile(new Pbf(data));
-              const geojson = {
-                type: 'FeatureCollection',
-                features: [],
-              };
-              for (const layerName in tile.layers) {
-                const layer = tile.layers[layerName];
-                for (let i = 0; i < layer.length; i++) {
-                  const feature = layer.feature(i);
-                  const featureGeoJSON = feature.toGeoJSON(x, y, z);
-                  featureGeoJSON.properties.layer = layerName;
-                  geojson.features.push(featureGeoJSON);
-                }
-              }
-              data = JSON.stringify(geojson);
-            }
-            delete headers['ETag']; // do not trust the tile ETag -- regenerate
-            headers['Content-Encoding'] = 'gzip';
-            res.set(headers);
-
-            data = await gzipP(data);
-
-            return res.status(200).send(data);
           }
-        } else if (item.sourceType === 'mbtiles') {
-          item.source.getTile(z, x, y, async (err, data, headers) => {
-            let isGzipped;
-            if (err) {
-              if (/does not exist/.test(err.message)) {
-                return res.status(204).send();
-              } else {
-                return res
-                  .status(500)
-                  .header('Content-Type', 'text/plain')
-                  .send(err.message);
+          if (format === 'pbf') {
+            headers['Content-Type'] = 'application/x-protobuf';
+          } else if (format === 'geojson') {
+            headers['Content-Type'] = 'application/json';
+            const tile = new VectorTile(new Pbf(data));
+            const geojson = {
+              type: 'FeatureCollection',
+              features: [],
+            };
+            for (const layerName in tile.layers) {
+              const layer = tile.layers[layerName];
+              for (let i = 0; i < layer.length; i++) {
+                const feature = layer.feature(i);
+                const featureGeoJSON = feature.toGeoJSON(x, y, z);
+                featureGeoJSON.properties.layer = layerName;
+                geojson.features.push(featureGeoJSON);
               }
-            } else {
-              if (data == null) {
-                return res.status(404).send('Not found');
-              } else {
-                if (tileJSONFormat === 'pbf') {
-                  isGzipped =
-                    data.slice(0, 2).indexOf(Buffer.from([0x1f, 0x8b])) === 0;
-                  if (options.dataDecoratorFunc) {
-                    if (isGzipped) {
-                      data = await gunzipP(data);
-                      isGzipped = false;
-                    }
-                    data = options.dataDecoratorFunc(id, 'data', data, z, x, y);
-                  }
-                }
-                if (format === 'pbf') {
-                  headers['Content-Type'] = 'application/x-protobuf';
-                } else if (format === 'geojson') {
-                  headers['Content-Type'] = 'application/json';
+            }
+            data = JSON.stringify(geojson);
+          }
+          delete headers['ETag']; // do not trust the tile ETag -- regenerate
+          headers['Content-Encoding'] = 'gzip';
+          res.set(headers);
 
+          data = await gzipP(data);
+
+          return res.status(200).send(data);
+        }
+      } else if (item.sourceType === 'mbtiles') {
+        item.source.getTile(z, x, y, async (err, data, headers) => {
+          let isGzipped;
+          if (err) {
+            if (/does not exist/.test(err.message)) {
+              return res.status(204).send();
+            } else {
+              return res
+                .status(500)
+                .header('Content-Type', 'text/plain')
+                .send(err.message);
+            }
+          } else {
+            if (data == null) {
+              return res.status(404).send('Not found');
+            } else {
+              if (tileJSONFormat === 'pbf') {
+                isGzipped =
+                  data.slice(0, 2).indexOf(Buffer.from([0x1f, 0x8b])) === 0;
+                if (options.dataDecoratorFunc) {
                   if (isGzipped) {
                     data = await gunzipP(data);
                     isGzipped = false;
                   }
-
-                  const tile = new VectorTile(new Pbf(data));
-                  const geojson = {
-                    type: 'FeatureCollection',
-                    features: [],
-                  };
-                  for (const layerName in tile.layers) {
-                    const layer = tile.layers[layerName];
-                    for (let i = 0; i < layer.length; i++) {
-                      const feature = layer.feature(i);
-                      const featureGeoJSON = feature.toGeoJSON(x, y, z);
-                      featureGeoJSON.properties.layer = layerName;
-                      geojson.features.push(featureGeoJSON);
-                    }
-                  }
-                  data = JSON.stringify(geojson);
+                  data = options.dataDecoratorFunc(id, 'data', data, z, x, y);
                 }
-                delete headers['ETag']; // do not trust the tile ETag -- regenerate
-                headers['Content-Encoding'] = 'gzip';
-                res.set(headers);
-
-                if (!isGzipped) {
-                  data = await gzipP(data);
-                }
-
-                return res.status(200).send(data);
               }
-            }
-          });
-        }
-      },
-    );
+              if (format === 'pbf') {
+                headers['Content-Type'] = 'application/x-protobuf';
+              } else if (format === 'geojson') {
+                headers['Content-Type'] = 'application/json';
 
-    app.get('/:id.json', (req, res, next) => {
+                if (isGzipped) {
+                  data = await gunzipP(data);
+                  isGzipped = false;
+                }
+
+                const tile = new VectorTile(new Pbf(data));
+                const geojson = {
+                  type: 'FeatureCollection',
+                  features: [],
+                };
+                for (const layerName in tile.layers) {
+                  const layer = tile.layers[layerName];
+                  for (let i = 0; i < layer.length; i++) {
+                    const feature = layer.feature(i);
+                    const featureGeoJSON = feature.toGeoJSON(x, y, z);
+                    featureGeoJSON.properties.layer = layerName;
+                    geojson.features.push(featureGeoJSON);
+                  }
+                }
+                data = JSON.stringify(geojson);
+              }
+              delete headers['ETag']; // do not trust the tile ETag -- regenerate
+              headers['Content-Encoding'] = 'gzip';
+              res.set(headers);
+
+              if (!isGzipped) {
+                data = await gzipP(data);
+              }
+
+              return res.status(200).send(data);
+            }
+          }
+        });
+      }
+    });
+    app.get('/:id.json', (req, res) => {
       const item = repo[req.params.id];
       if (!item) {
         return res.sendStatus(404);
