@@ -624,6 +624,256 @@ const respondImage = async (
   });
 };
 
+/**
+ * Handles requests for tile images.
+ * @param {object} options - Configuration options for the server.
+ * @param {object} repo - The repository object holding style data.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @param {Function} next - Express next middleware function.
+ * @param {number} maxScaleFactor - The maximum scale factor allowed.
+ * @returns {Promise<void>}
+ */
+async function handleTileRequest(
+  options,
+  repo,
+  req,
+  res,
+  next,
+  maxScaleFactor,
+) {
+  const {
+    id,
+    p2: zParam,
+    p3: xParam,
+    p4: yParam,
+    scale: scaleParam,
+    format,
+    p1: tileSize,
+  } = req.params;
+  const item = repo[id];
+  if (!item) {
+    return res.sendStatus(404);
+  }
+
+  const modifiedSince = req.get('if-modified-since');
+  const cc = req.get('cache-control');
+  if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
+    if (new Date(item.lastModified) <= new Date(modifiedSince)) {
+      return res.sendStatus(304);
+    }
+  }
+  const z = parseFloat(zParam) | 0;
+  const x = parseFloat(xParam) | 0;
+  const y = parseFloat(yParam) | 0;
+  const scale = parseScale(scaleParam, maxScaleFactor);
+  const parsedTileSize = parseInt(tileSize, 10) || 256;
+  if (
+    scale == null ||
+    z < 0 ||
+    x < 0 ||
+    y < 0 ||
+    z > 22 ||
+    x >= Math.pow(2, z) ||
+    y >= Math.pow(2, z)
+  ) {
+    return res.status(404).send('Out of bounds');
+  }
+
+  const tileCenter = mercator.ll(
+    [((x + 0.5) / (1 << z)) * (256 << z), ((y + 0.5) / (1 << z)) * (256 << z)],
+    z,
+  );
+
+  // prettier-ignore
+  return await respondImage(
+    options, item, z, tileCenter[0], tileCenter[1], 0, 0, parsedTileSize, parsedTileSize, scale, format, res,
+  );
+}
+
+/**
+ * Handles requests for static map images.
+ * @param {object} options - Configuration options for the server.
+ * @param {object} repo - The repository object holding style data.
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @param {Function} next - Express next middleware function.
+ * @param {number} maxScaleFactor - The maximum scale factor allowed.
+ * @returns {Promise<void>}
+ */
+async function handleStaticRequest(
+  options,
+  repo,
+  req,
+  res,
+  next,
+  maxScaleFactor,
+) {
+  const {
+    id,
+    scale: scaleParam,
+    format,
+    p2: raw,
+    p3: type,
+    p4: width,
+    p5: height,
+  } = req.params;
+  const item = repo[id];
+  const parsedWidth = parseInt(width) || 512;
+  const parsedHeight = parseInt(height) || 512;
+  const scale = parseScale(scaleParam, maxScaleFactor);
+  let isRaw = raw !== undefined;
+  let staticType = type;
+
+  if (!staticType) {
+    //workaround for type when raw is not set
+    staticType = raw;
+    isRaw = false;
+  }
+
+  if (!item || !staticType || !format || !scale) {
+    return res.sendStatus(404);
+  }
+
+  const staticTypeMatch = staticType.match(staticTypeRegex);
+  console.log(staticTypeMatch);
+  if (staticTypeMatch.groups.lon) {
+    // Center Based Static Image
+    const z = parseFloat(staticTypeMatch.groups.zoom) || 0;
+    let x = parseFloat(staticTypeMatch.groups.lon) || 0;
+    let y = parseFloat(staticTypeMatch.groups.lat) || 0;
+    const bearing = parseFloat(staticTypeMatch.groups.bearing) || 0;
+    const pitch = parseInt(staticTypeMatch.groups.pitch) || 0;
+    if (z < 0) {
+      return res.status(404).send('Invalid zoom');
+    }
+
+    const transformer = isRaw
+      ? mercator.inverse.bind(mercator)
+      : item.dataProjWGStoInternalWGS;
+
+    if (transformer) {
+      const ll = transformer([x, y]);
+      x = ll[0];
+      y = ll[1];
+    }
+
+    const paths = extractPathsFromQuery(req.query, transformer);
+    const markers = extractMarkersFromQuery(req.query, options, transformer);
+
+    // prettier-ignore
+    const overlay = await renderOverlay(
+      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+    );
+
+    // prettier-ignore
+    return await respondImage(
+        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+    );
+  } else if (staticTypeMatch.groups.minx) {
+    // Area Based Static Image
+    const bbox = [
+      +staticTypeMatch.groups.minx,
+      +staticTypeMatch.groups.miny,
+      +staticTypeMatch.groups.maxx,
+      +staticTypeMatch.groups.maxx,
+    ];
+    let center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+
+    const transformer = isRaw
+      ? mercator.inverse.bind(mercator)
+      : item.dataProjWGStoInternalWGS;
+
+    if (transformer) {
+      const minCorner = transformer(bbox.slice(0, 2));
+      const maxCorner = transformer(bbox.slice(2));
+      bbox[0] = minCorner[0];
+      bbox[1] = minCorner[1];
+      bbox[2] = maxCorner[0];
+      bbox[3] = maxCorner[1];
+      center = transformer(center);
+    }
+
+    const z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query);
+    const x = center[0];
+    const y = center[1];
+    const bearing = 0;
+    const pitch = 0;
+    const paths = extractPathsFromQuery(req.query, transformer);
+    const markers = extractMarkersFromQuery(req.query, options, transformer);
+    // prettier-ignore
+    const overlay = await renderOverlay(
+        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+    );
+
+    // prettier-ignore
+    return await respondImage(
+        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+    );
+  } else if (staticTypeMatch.groups.auto) {
+    // Area Static Image
+    const bearing = 0;
+    const pitch = 0;
+
+    const transformer = isRaw
+      ? mercator.inverse.bind(mercator)
+      : item.dataProjWGStoInternalWGS;
+
+    const paths = extractPathsFromQuery(req.query, transformer);
+    const markers = extractMarkersFromQuery(req.query, options, transformer);
+
+    // Extract coordinates from markers
+    const markerCoordinates = [];
+    for (const marker of markers) {
+      markerCoordinates.push(marker.location);
+    }
+
+    // Create array with coordinates from markers and path
+    const coords = [].concat(paths.flat()).concat(markerCoordinates);
+
+    // Check if we have at least one coordinate to calculate a bounding box
+    if (coords.length < 1) {
+      return res.status(400).send('No coordinates provided');
+    }
+
+    const bbox = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const pair of coords) {
+      bbox[0] = Math.min(bbox[0], pair[0]);
+      bbox[1] = Math.min(bbox[1], pair[1]);
+      bbox[2] = Math.max(bbox[2], pair[0]);
+      bbox[3] = Math.max(bbox[3], pair[1]);
+    }
+
+    const bbox_ = mercator.convert(bbox, '900913');
+    const center = mercator.inverse([
+      (bbox_[0] + bbox_[2]) / 2,
+      (bbox_[1] + bbox_[3]) / 2,
+    ]);
+
+    // Calculate zoom level
+    const maxZoom = parseFloat(req.query.maxzoom);
+    let z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query);
+    if (maxZoom > 0) {
+      z = Math.min(z, maxZoom);
+    }
+
+    const x = center[0];
+    const y = center[1];
+
+    // prettier-ignore
+    const overlay = await renderOverlay(
+        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+    );
+
+    // prettier-ignore
+    return await respondImage(
+        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+    );
+  } else {
+    return res.sendStatus(404);
+  }
+}
+
 const existingFonts = {};
 let maxScaleFactor = 2;
 
@@ -639,251 +889,39 @@ export const serve_rendered = {
     const app = express().disable('x-powered-by');
 
     app.get(
-      `/:id{/:tileSize}/:z/:x/:y{@:scale}{.:format}`,
+      `/:id{/:p1}/:p2/:p3/:p4{x:p5}{@:scale}{.:format}`,
       async (req, res, next) => {
         try {
-          console.log(req.params);
-          if (
-            req.params.z === 'static' ||
-            (req.params.tileSize &&
-              req.params.tileSize != 256 &&
-              req.params.tileSize != 512)
-          ) {
-            //workaroud for /:id/static{/:raw}{/:type}/:width{x:height}{@:scale}{.:format}
-            next('route');
-          } else {
-            const item = repo[req.params.id];
-            if (!item) {
-              return res.sendStatus(404);
+          const { p2 } = req.params;
+          if (p2 === 'static') {
+            // Route to static if p2 is static
+            if (options.serveStaticMaps !== false) {
+              return handleStaticRequest(
+                options,
+                repo,
+                req,
+                res,
+                next,
+                maxScaleFactor,
+              );
             }
-
-            const modifiedSince = req.get('if-modified-since');
-            const cc = req.get('cache-control');
-            if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
-              if (new Date(item.lastModified) <= new Date(modifiedSince)) {
-                return res.sendStatus(304);
-              }
-            }
-
-            const z = req.params.z | 0;
-            const x = req.params.x | 0;
-            const y = req.params.y | 0;
-            const scale = parseScale(req.params.scale, maxScaleFactor);
-            const format = req.params.format;
-            const tileSize = parseInt(req.params.tileSize, 10) || 256;
-            if (
-              scale == null ||
-              z < 0 ||
-              x < 0 ||
-              y < 0 ||
-              z > 22 ||
-              x >= Math.pow(2, z) ||
-              y >= Math.pow(2, z)
-            ) {
-              return res.status(404).send('Out of bounds');
-            }
-
-            const tileCenter = mercator.ll(
-              [
-                ((x + 0.5) / (1 << z)) * (256 << z),
-                ((y + 0.5) / (1 << z)) * (256 << z),
-              ],
-              z,
-            );
-
-            // prettier-ignore
-            return await respondImage(
-              options, item, z, tileCenter[0], tileCenter[1], 0, 0, tileSize, tileSize, scale, format, res,
-            );
+            return res.sendStatus(404);
           }
+
+          return handleTileRequest(
+            options,
+            repo,
+            req,
+            res,
+            next,
+            maxScaleFactor,
+          );
         } catch (e) {
           console.log(e);
-          next('route');
+          return next(e);
         }
       },
     );
-
-    if (options.serveStaticMaps !== false) {
-      app.get(
-        `/:id/static{/:raw}{/:type}/:width{x:height}{@:scale}{.:format}`,
-        async (req, res, next) => {
-          try {
-            const item = repo[req.params.id];
-            console.log(req.params);
-            const format = req.params.format;
-            const w = parseInt(req.params.width) || 512;
-            const h = parseInt(req.params.height) || 512;
-            const scale = parseScale(req.params.scale, maxScaleFactor);
-            let raw = req.params.raw !== undefined;
-            let type = req.params.type;
-            if (!type) {
-              //workaround for type when raw is not set
-              type = req.params.raw;
-              raw = false;
-            }
-
-            if (!item || !type || !format || !scale) {
-              return res.sendStatus(404);
-            }
-
-            const staticTypeMatch = type.match(staticTypeRegex);
-            console.log(staticTypeMatch.groups);
-            if (staticTypeMatch.groups.lon) {
-              // Center Based Static Image
-              const z = staticTypeMatch.groups.zoom;
-              let x = staticTypeMatch.groups.lon;
-              let y = staticTypeMatch.groups.lat;
-              const bearing = staticTypeMatch.groups.bearing;
-              const pitch = staticTypeMatch.groups.pitch;
-
-              if (z < 0) {
-                return res.status(404).send('Invalid zoom');
-              }
-
-              const transformer = raw
-                ? mercator.inverse.bind(mercator)
-                : item.dataProjWGStoInternalWGS;
-
-              if (transformer) {
-                const ll = transformer([x, y]);
-                x = ll[0];
-                y = ll[1];
-              }
-
-              const paths = extractPathsFromQuery(req.query, transformer);
-              const markers = extractMarkersFromQuery(
-                req.query,
-                options,
-                transformer,
-              );
-
-              // prettier-ignore
-              const overlay = await renderOverlay(
-                  z, x, y, bearing, pitch, w, h, scale, paths, markers, req.query,
-                );
-
-              // prettier-ignore
-              return await respondImage(
-                  options, item, z, x, y, bearing, pitch, w, h, scale, format, res, overlay, 'static',
-                );
-            } else if (staticTypeMatch.groups.minx) {
-              // Area Based Static Image
-              const bbox = [
-                +staticTypeMatch.groups.minx,
-                +staticTypeMatch.groups.miny,
-                +staticTypeMatch.groups.maxx,
-                +staticTypeMatch.groups.maxx,
-              ];
-              let center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
-
-              const transformer = raw
-                ? mercator.inverse.bind(mercator)
-                : item.dataProjWGStoInternalWGS;
-
-              if (transformer) {
-                const minCorner = transformer(bbox.slice(0, 2));
-                const maxCorner = transformer(bbox.slice(2));
-                bbox[0] = minCorner[0];
-                bbox[1] = minCorner[1];
-                bbox[2] = maxCorner[0];
-                bbox[3] = maxCorner[1];
-                center = transformer(center);
-              }
-
-              const z = calcZForBBox(bbox, w, h, req.query);
-              const x = center[0];
-              const y = center[1];
-              const bearing = 0;
-              const pitch = 0;
-
-              const paths = extractPathsFromQuery(req.query, transformer);
-              const markers = extractMarkersFromQuery(
-                req.query,
-                options,
-                transformer,
-              );
-
-              // prettier-ignore
-              const overlay = await renderOverlay(
-                  z, x, y, bearing, pitch, w, h, scale, paths, markers, req.query,
-                );
-
-              // prettier-ignore
-              return await respondImage(
-                  options, item, z, x, y, bearing, pitch, w, h, scale, format, res, overlay, 'static',
-                );
-            } else if (staticTypeMatch.groups.auto) {
-              // Area Static Image
-              const bearing = 0;
-              const pitch = 0;
-
-              const transformer = raw
-                ? mercator.inverse.bind(mercator)
-                : item.dataProjWGStoInternalWGS;
-
-              const paths = extractPathsFromQuery(req.query, transformer);
-              const markers = extractMarkersFromQuery(
-                req.query,
-                options,
-                transformer,
-              );
-
-              // Extract coordinates from markers
-              const markerCoordinates = [];
-              for (const marker of markers) {
-                markerCoordinates.push(marker.location);
-              }
-
-              // Create array with coordinates from markers and path
-              const coords = [].concat(paths.flat()).concat(markerCoordinates);
-
-              // Check if we have at least one coordinate to calculate a bounding box
-              if (coords.length < 1) {
-                return res.status(400).send('No coordinates provided');
-              }
-
-              const bbox = [Infinity, Infinity, -Infinity, -Infinity];
-              for (const pair of coords) {
-                bbox[0] = Math.min(bbox[0], pair[0]);
-                bbox[1] = Math.min(bbox[1], pair[1]);
-                bbox[2] = Math.max(bbox[2], pair[0]);
-                bbox[3] = Math.max(bbox[3], pair[1]);
-              }
-
-              const bbox_ = mercator.convert(bbox, '900913');
-              const center = mercator.inverse([
-                (bbox_[0] + bbox_[2]) / 2,
-                (bbox_[1] + bbox_[3]) / 2,
-              ]);
-
-              // Calculate zoom level
-              const maxZoom = parseFloat(req.query.maxzoom);
-              let z = calcZForBBox(bbox, w, h, req.query);
-              if (maxZoom > 0) {
-                z = Math.min(z, maxZoom);
-              }
-
-              const x = center[0];
-              const y = center[1];
-
-              // prettier-ignore
-              const overlay = await renderOverlay(
-                  z, x, y, bearing, pitch, w, h, scale, paths, markers, req.query,
-                );
-
-              // prettier-ignore
-              return await respondImage(
-                  options, item, z, x, y, bearing, pitch, w, h, scale, format, res, overlay, 'static',
-                );
-            } else {
-              return res.sendStatus(404);
-            }
-          } catch (e) {
-            next('route');
-          }
-        },
-      );
-    }
 
     app.get('{/:tileSize}/:id.json', (req, res, next) => {
       const item = repo[req.params.id];
