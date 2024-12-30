@@ -16,7 +16,12 @@ import morgan from 'morgan';
 import { serve_data } from './serve_data.js';
 import { serve_style } from './serve_style.js';
 import { serve_font } from './serve_font.js';
-import { getTileUrls, getPublicUrl, isValidHttpUrl } from './utils.js';
+import {
+  getTileUrls,
+  getPublicUrl,
+  isValidHttpUrl,
+  allowedOptions,
+} from './utils.js';
 
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
@@ -98,6 +103,10 @@ async function start(opts) {
   paths.files = paths.files
     ? path.resolve(paths.root, paths.files)
     : path.resolve(__dirname, '../public/files');
+
+  const allowedTileSizes = allowedOptions(['256', '512'], {
+    defaultValue: options.tileSize || 256,
+  });
 
   const startupPromises = [];
 
@@ -389,17 +398,19 @@ async function start(opts) {
   }
 
   app.get('{/:tileSize}/rendered.json', (req, res, next) => {
-    const tileSize = parseInt(req.params.tileSize, 10) || undefined;
-    res.send(addTileJSONs([], req, 'rendered', tileSize));
+    const tileSize = allowedTileSizes(req.params['tileSize']);
+    res.send(addTileJSONs([], req, 'rendered', parseInt(tileSize, 10)));
   });
+
   app.get('/data.json', (req, res) => {
     res.send(addTileJSONs([], req, 'data', undefined));
   });
+
   app.get('{/:tileSize}/index.json', (req, res, next) => {
-    const tileSize = parseInt(req.params.tileSize, 10) || undefined;
+    const tileSize = allowedTileSizes(req.params['tileSize']);
     res.send(
       addTileJSONs(
-        addTileJSONs([], req, 'rendered', tileSize),
+        addTileJSONs([], req, 'rendered', parseInt(tileSize, 10)),
         req,
         'data',
         undefined,
