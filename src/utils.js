@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import clone from 'clone';
 import { combine } from '@jsse/pbfont';
 import { existsP } from './promises.js';
+import { getPMtilesTile } from './pmtiles_adapter.js';
 
 /**
  * Restrict user input to an allowed set of options.
@@ -321,4 +322,32 @@ export function isValidHttpUrl(string) {
   }
 
   return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
+/**
+ * Fetches tile data from either PMTiles or MBTiles source.
+ * @param {object} source - The source object, which may contain a mbtiles object, or pmtiles object.
+ * @param {string} sourceType - The source type, which should be `pmtiles` or `mbtiles`
+ * @param {number} z - The zoom level.
+ * @param {number} x - The x coordinate of the tile.
+ * @param {number} y - The y coordinate of the tile.
+ * @returns {Promise<object | null>} - A promise that resolves to an object with data and headers or null if no data is found.
+ */
+export async function fetchTileData(source, sourceType, z, x, y) {
+  if (sourceType === 'pmtiles') {
+    return await new Promise(async (resolve) => {
+      const tileinfo = await getPMtilesTile(source, z, x, y);
+      if (!tileinfo?.data) return resolve(null);
+      resolve({ data: tileinfo.data, headers: tileinfo.header });
+    });
+  } else if (sourceType === 'mbtiles') {
+    return await new Promise((resolve) => {
+      source.getTile(z, x, y, (err, tileData, tileHeader) => {
+        if (err) {
+          return resolve(null);
+        }
+        resolve({ data: tileData, headers: tileHeader });
+      });
+    });
+  }
 }

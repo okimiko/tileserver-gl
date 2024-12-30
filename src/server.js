@@ -193,7 +193,7 @@ async function start(opts) {
         serving.styles,
         item,
         id,
-        opts.publicUrl,
+        opts,
         (styleSourceId, protocol) => {
           let dataItemId;
           for (const id of Object.keys(data)) {
@@ -250,7 +250,7 @@ async function start(opts) {
             serving.rendered,
             item,
             id,
-            opts.publicUrl,
+            opts,
             function dataResolver(styleSourceId) {
               let fileType;
               let inputFile;
@@ -301,9 +301,7 @@ async function start(opts) {
       );
       continue;
     }
-    startupPromises.push(
-      serve_data.add(options, serving.data, item, id, opts.publicUrl),
-    );
+    startupPromises.push(serve_data.add(options, serving.data, item, id, opts));
   }
   if (options.serveAllStyles) {
     fs.readdir(options.paths.styles, { withFileTypes: true }, (err, files) => {

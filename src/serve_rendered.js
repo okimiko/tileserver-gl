@@ -33,12 +33,9 @@ import {
   getTileUrls,
   isValidHttpUrl,
   fixTileJSONCenter,
+  fetchTileData,
 } from './utils.js';
-import {
-  openPMtiles,
-  getPMtilesInfo,
-  getPMtilesTile,
-} from './pmtiles_adapter.js';
+import { openPMtiles, getPMtilesInfo } from './pmtiles_adapter.js';
 import { renderOverlay, renderWatermark, renderAttribution } from './render.js';
 import fsp from 'node:fs/promises';
 import { existsP, gunzipP } from './promises.js';
@@ -951,17 +948,19 @@ export const serve_rendered = {
    * @param {object} repo Repository object.
    * @param {object} params Parameters object.
    * @param {string} id ID of the item.
-   * @param {string} publicUrl Public URL.
+   * @param {object} programOpts - An object containing the program options
    * @param {Function} dataResolver Function to resolve data.
    * @returns {Promise<void>}
    */
-  add: async function (options, repo, params, id, publicUrl, dataResolver) {
+  add: async function (options, repo, params, id, programOpts, dataResolver) {
     const map = {
       renderers: [],
       renderersStatic: [],
       sources: {},
       sourceTypes: {},
     };
+
+    const { publicUrl, verbose } = programOpts;
 
     let styleJSON;
     /**
@@ -1023,88 +1022,57 @@ export const serve_rendered = {
               const y = parts[5].split('.')[0] | 0;
               const format = parts[5].split('.')[1];
 
-              if (sourceType === 'pmtiles') {
-                let tileinfo = await getPMtilesTile(source, z, x, y);
-                let data = tileinfo.data;
-                let headers = tileinfo.header;
-                if (data == undefined) {
-                  if (options.verbose)
-                    console.log('MBTiles error, serving empty', err);
-                  createEmptyResponse(
-                    sourceInfo.format,
-                    sourceInfo.color,
-                    callback,
+              const fetchTile = await fetchTileData(
+                source,
+                sourceType,
+                z,
+                x,
+                y,
+              );
+              if (fetchTile == null) {
+                if (verbose) {
+                  console.log(
+                    'fetchTile error on %s, serving empty response',
+                    req.url,
                   );
-                  return;
-                } else {
-                  const response = {};
-                  response.data = data;
-                  if (headers['Last-Modified']) {
-                    response.modified = new Date(headers['Last-Modified']);
-                  }
-
-                  if (format === 'pbf') {
-                    if (options.dataDecoratorFunc) {
-                      response.data = options.dataDecoratorFunc(
-                        sourceId,
-                        'data',
-                        response.data,
-                        z,
-                        x,
-                        y,
-                      );
-                    }
-                  }
-
-                  callback(null, response);
                 }
-              } else if (sourceType === 'mbtiles') {
-                source.getTile(z, x, y, async (err, data, headers) => {
-                  if (err) {
-                    if (options.verbose)
-                      console.log('MBTiles error, serving empty', err);
-                    createEmptyResponse(
-                      sourceInfo.format,
-                      sourceInfo.color,
-                      callback,
-                    );
-                    return;
-                  }
-
-                  const response = {};
-                  if (headers['Last-Modified']) {
-                    response.modified = new Date(headers['Last-Modified']);
-                  }
-
-                  if (format === 'pbf') {
-                    try {
-                      response.data = await gunzipP(data);
-                    } catch (err) {
-                      console.log(
-                        'Skipping incorrect header for tile mbtiles://%s/%s/%s/%s.pbf',
-                        id,
-                        z,
-                        x,
-                        y,
-                      );
-                    }
-                    if (options.dataDecoratorFunc) {
-                      response.data = options.dataDecoratorFunc(
-                        sourceId,
-                        'data',
-                        response.data,
-                        z,
-                        x,
-                        y,
-                      );
-                    }
-                  } else {
-                    response.data = data;
-                  }
-
-                  callback(null, response);
-                });
+                createEmptyResponse(
+                  sourceInfo.format,
+                  sourceInfo.color,
+                  callback,
+                );
+                return;
               }
+
+              const response = {};
+              response.data = fetchTile.data;
+              let headers = fetchTile.headers;
+              let isGzipped =
+                response.data.slice(0, 2).indexOf(Buffer.from([0x1f, 0x8b])) ===
+                0;
+
+              if (headers['Last-Modified']) {
+                response.modified = new Date(headers['Last-Modified']);
+              }
+
+              if (format === 'pbf') {
+                if (isGzipped) {
+                  response.data = await gunzipP(response.data);
+                  isGzipped = false;
+                }
+                if (options.dataDecoratorFunc) {
+                  response.data = options.dataDecoratorFunc(
+                    sourceId,
+                    'data',
+                    response.data,
+                    z,
+                    x,
+                    y,
+                  );
+                }
+              }
+
+              callback(null, response);
             } else if (protocol === 'http' || protocol === 'https') {
               try {
                 const response = await axios.get(req.url, {

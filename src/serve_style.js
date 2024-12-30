@@ -112,7 +112,7 @@ export const serve_style = {
    * @param {object} repo Repository object.
    * @param {object} params Parameters object containing style path
    * @param {string} id ID of the style.
-   * @param {string} publicUrl Public URL of the data.
+   * @param {object} programOpts - An object containing the program options
    * @param {Function} reportTiles Function for reporting tile sources.
    * @param {Function} reportFont Function for reporting font usage
    * @returns {boolean} true if add is succesful
@@ -122,10 +122,11 @@ export const serve_style = {
     repo,
     params,
     id,
-    publicUrl,
+    programOpts,
     reportTiles,
     reportFont,
   ) {
+    const { publicUrl } = programOpts;
     const styleFile = path.resolve(options.paths.styles, params.style);
 
     let styleFileData;

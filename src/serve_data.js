@@ -11,7 +11,12 @@ import SphericalMercator from '@mapbox/sphericalmercator';
 import { Image, createCanvas } from 'canvas';
 import sharp from 'sharp';
 
-import { fixTileJSONCenter, getTileUrls, isValidHttpUrl } from './utils.js';
+import {
+  fixTileJSONCenter,
+  getTileUrls,
+  isValidHttpUrl,
+  fetchTileData,
+} from './utils.js';
 import {
   getPMtilesInfo,
   getPMtilesTile,
@@ -64,31 +69,17 @@ export const serve_data = {
         return res.status(404).send('Out of bounds');
       }
 
-      let getTile;
-      if (item.sourceType === 'pmtiles') {
-        const tileinfo = await getPMtilesTile(item.source, z, x, y);
-        if (!tileinfo?.data) return res.status(204).send();
-        getTile = { data: tileinfo.data, header: tileinfo.header };
-      } else if (item.sourceType === 'mbtiles') {
-        try {
-          getTile = await new Promise((resolve, reject) => {
-            item.source.getTile(z, x, y, (err, tileData, tileHeader) => {
-              if (err) {
-                return /does not exist/.test(err.message)
-                  ? resolve(null)
-                  : reject(err);
-              }
-              resolve({ data: tileData, header: tileHeader });
-            });
-          });
-        } catch (e) {
-          return res.status(500).send(e.message);
-        }
-      }
-      if (getTile == null) return res.status(204).send();
+      const fetchTile = await fetchTileData(
+        item.source,
+        item.sourceType,
+        z,
+        x,
+        y,
+      );
+      if (fetchTile == null) return res.status(204).send();
 
-      let data = getTile.data;
-      let headers = getTile.header;
+      let data = fetchTile.data;
+      let headers = fetchTile.headers;
       let isGzipped = data.slice(0, 2).indexOf(Buffer.from([0x1f, 0x8b])) === 0;
 
       if (tileJSONFormat === 'pbf') {
@@ -121,7 +112,6 @@ export const serve_data = {
         }
         data = JSON.stringify(geojson);
       }
-      console.log(headers);
       delete headers['ETag']; // do not trust the tile ETag -- regenerate
       headers['Content-Encoding'] = 'gzip';
       res.set(headers);
@@ -162,10 +152,11 @@ export const serve_data = {
    * @param {object} repo Repository object.
    * @param {object} params Parameters object.
    * @param {string} id ID of the data source.
-   * @param {string} publicUrl Public URL of the data.
+   * @param {object} programOpts - An object containing the program options
    * @returns {Promise<void>}
    */
-  add: async function (options, repo, params, id, publicUrl) {
+  add: async function (options, repo, params, id, programOpts) {
+    const { publicUrl } = programOpts;
     let inputFile;
     let inputType;
     if (params.pmtiles) {
