@@ -19,7 +19,7 @@ const allowedSpriteFormats = allowedOptions(['png', 'json']);
  */
 function allowedSpriteScales(scale) {
   if (!scale) return '';
-  const match = scale.match(/(\d+)x/); 
+  const match = scale.match(/(\d+)x/);
   const parsedScale = match ? parseInt(match[1], 10) : 1;
   return '@' + Math.min(parsedScale, 3) + 'x';
 }
@@ -64,42 +64,43 @@ export const serve_style = {
     });
 
     app.get(`/:id/:sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
-      console.log(req.params);
       const { spriteID = 'default', id, format } = req.params;
       const scale = allowedSpriteScales(req.params.scale);
-      try {
-        if (
-          !allowedSpriteFormats(format) ||
-          ((id == 256 || id == 512) && format === 'json')
-        ) {
-          //Workaround for {/:tileSize}/:id.json' and /styles/:id/wmts.xml
-          next('route');
-        } else {
-          const item = repo[id];
-          const sprite = item.spritePaths.find(
-            (sprite) => sprite.id === spriteID,
-          );
-          if (sprite) {
-            const filename = `${sprite.path + scale}.${format}`;
-            return fs.readFile(filename, (err, data) => {
-              if (err) {
-                console.log('Sprite load error:', filename);
-                return res.sendStatus(404);
-              } else {
-                if (format === 'json')
-                  res.header('Content-type', 'application/json');
-                if (format === 'png') res.header('Content-type', 'image/png');
-                return res.send(data);
-              }
-            });
-          } else {
-            return res.status(400).send('Bad Sprite ID or Scale');
-          }
-        }
-      } catch (e) {
-        console.log(e);
-        next('route');
+
+      if (
+        !allowedSpriteFormats(format) ||
+        ((id == 256 || id == 512) && format === 'json')
+      ) {
+        //Workaround for {/:tileSize}/:id.json' and /styles/:id/wmts.xml
+        return next('route');
       }
+
+      const item = repo[id];
+      if (!item) {
+        return res.sendStatus(404); // Ensure item exists first to prevent errors
+      }
+
+      const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
+      if (!sprite) {
+        return res.status(400).send('Bad Sprite ID or Scale');
+      }
+
+      const spriteScale = allowedSpriteScales(scale);
+      const filename = `${sprite.path}${spriteScale}.${format}`;
+
+      fs.readFile(filename, (err, data) => {
+        if (err) {
+          console.error('Sprite load error: %s, Error: %s', filename, err);
+          return res.sendStatus(404);
+        }
+
+        if (format === 'json') {
+          res.header('Content-type', 'application/json');
+        } else if (format === 'png') {
+          res.header('Content-type', 'image/png');
+        }
+        return res.send(data);
+      });
     });
 
     return app;

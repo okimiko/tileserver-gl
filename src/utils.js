@@ -196,14 +196,23 @@ export function fixTileJSONCenter(tileJSON) {
 function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
   return new Promise((resolve, reject) => {
     if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        console.error('ERROR: Invalid font name: %s', name);
+        return reject('Invalid font name');
+      }
+      if (!/^\d+-\d+$/.test(range)) {
+        console.error('ERROR: Invalid range: %s', range);
+        return reject('Invalid range');
+      }
       const filename = path.join(fontPath, name, `${range}.pbf`);
       if (!fallbacks) {
         fallbacks = clone(allowedFonts || {});
       }
       delete fallbacks[name];
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       fs.readFile(filename, (err, data) => {
         if (err) {
-          console.error(`ERROR: Font not found: ${name}`);
+          console.error('ERROR: Font not found: %s, Error: %s', filename, err);
           if (fallbacks && Object.keys(fallbacks).length) {
             let fallbackName;
 
@@ -219,7 +228,10 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
               }
             }
 
-            console.error(`ERROR: Trying to use ${fallbackName} as a fallback`);
+            console.error(
+              `ERROR: Trying to use %s as a fallback`,
+              fallbackName,
+            );
             delete fallbacks[fallbackName];
             getFontPbf(null, fontPath, fallbackName, range, fallbacks).then(
               resolve,
