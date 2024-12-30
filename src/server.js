@@ -445,33 +445,40 @@ async function start(opts) {
     try {
       const content = fs.readFileSync(templateFile, 'utf-8');
       const compiled = handlebars.compile(content.toString());
-      app.get(urlPath, (req, res) => {
-        console.log(`Serving template at path: ${urlPath}`);
+      app.get(urlPath, (req, res, next) => {
+        if (opts.verbose) {
+          console.log(`Serving template at path: ${urlPath}`);
+        }
         let data = {};
         if (dataGetter) {
           data = dataGetter(req);
-          if (!data) {
-            console.error(`Data getter for ${template} returned null`);
-            return res.status(404).send('Not found');
+          if (data) {
+            data['server_version'] =
+              `${packageJson.name} v${packageJson.version}`;
+            data['public_url'] = opts.publicUrl || '/';
+            data['is_light'] = isLight;
+            data['key_query_part'] = req.query.key
+              ? `key=${encodeURIComponent(req.query.key)}&amp;`
+              : '';
+            data['key_query'] = req.query.key
+              ? `?key=${encodeURIComponent(req.query.key)}`
+              : '';
+            if (template === 'wmts') res.set('Content-Type', 'text/xml');
+            return res.status(200).send(compiled(data));
+          } else {
+            if (opts.verbose) {
+              console.log(`Forwarding request for: ${urlPath} to next route`);
+            }
+            next('route');
           }
         }
-        data['server_version'] = `${packageJson.name} v${packageJson.version}`;
-        data['public_url'] = opts.publicUrl || '/';
-        data['is_light'] = isLight;
-        data['key_query_part'] = req.query.key
-          ? `key=${encodeURIComponent(req.query.key)}&amp;`
-          : '';
-        data['key_query'] = req.query.key
-          ? `?key=${encodeURIComponent(req.query.key)}`
-          : '';
-        if (template === 'wmts') res.set('Content-Type', 'text/xml');
-        return res.status(200).send(compiled(data));
       });
     } catch (err) {
       console.error(`Error reading template file: ${templateFile}`, err);
       throw new Error(`Template not found: ${err.message}`); //throw an error so that the server doesnt start
     }
   }
+
   serveTemplate('/', 'index', (req) => {
     let styles = {};
     for (const id of Object.keys(serving.styles || {})) {
