@@ -33,9 +33,9 @@ export const serve_data = {
         return res.sendStatus(404);
       }
       const tileJSONFormat = item.tileJSON.format;
-      const z = req.params.z | 0;
-      const x = req.params.x | 0;
-      const y = req.params.y | 0;
+      const z = parseFloat(req.params.z) | 0;
+      const x = parseFloat(req.params.x) | 0;
+      const y = parseFloat(req.params.y) | 0;
       let format = req.params.format;
       if (format === options.pbfAlias) {
         format = 'pbf';
