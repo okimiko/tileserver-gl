@@ -63,21 +63,13 @@ export const serve_style = {
       return res.send(styleJSON_);
     });
 
-    app.get(`/:id/:sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
+    app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
       const { spriteID = 'default', id, format } = req.params;
-      const scale = allowedSpriteScales(req.params.scale);
-
-      if (
-        !allowedSpriteFormats(format) ||
-        ((id == 256 || id == 512) && format === 'json')
-      ) {
-        //Workaround for {/:tileSize}/:id.json' and /styles/:id/wmts.xml
-        return next('route');
-      }
+      const spriteScale = allowedSpriteScales(req.params.scale);
 
       const item = repo[id];
-      if (!item) {
-        return res.sendStatus(404); // Ensure item exists first to prevent errors
+      if (!item || !allowedSpriteFormats(format)) {
+        return res.sendStatus(404);
       }
 
       const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
@@ -85,9 +77,9 @@ export const serve_style = {
         return res.status(400).send('Bad Sprite ID or Scale');
       }
 
-      const spriteScale = allowedSpriteScales(scale);
       const filename = `${sprite.path}${spriteScale}.${format}`;
 
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       fs.readFile(filename, (err, data) => {
         if (err) {
           console.error('Sprite load error: %s, Error: %s', filename, err);
