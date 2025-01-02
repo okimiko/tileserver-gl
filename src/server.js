@@ -621,7 +621,7 @@ async function start(opts) {
     };
   });
 
-  serveTemplate('^/data{/:view}/:id/', 'data', (req) => {
+  serveTemplate('/data{/:view}/:id/', 'data', (req) => {
     const { id, view } = req.params;
     const data = serving.data[id];
 
