@@ -52,6 +52,12 @@ function getUrlObject(req) {
   // support overriding hostname by sending X-Forwarded-Host http header
   urlObject.hostname = req.hostname;
 
+  // support overriding port by sending X-Forwarded-Port http header
+  const xForwardedPort = req.get('X-Forwarded-Port');
+  if (xForwardedPort) {
+    urlObject.port = xForwardedPort;
+  }
+
   // support add url prefix by sending X-Forwarded-Path http header
   const xForwardedPath = req.get('X-Forwarded-Path');
   if (xForwardedPath) {
@@ -138,16 +144,22 @@ export function getTileUrls(
     tileParams = `${tileSize}/{z}/{x}/{y}`;
   }
 
+  if (format && format != '') {
+    format = `.${format}`;
+  } else {
+    format = '';
+  }
+
   const uris = [];
   if (!publicUrl) {
     let xForwardedPath = `${req.get('X-Forwarded-Path') ? '/' + req.get('X-Forwarded-Path') : ''}`;
     for (const domain of domains) {
       uris.push(
-        `${req.protocol}://${domain}${xForwardedPath}/${path}/${tileParams}.${format}${query}`,
+        `${req.protocol}://${domain}${xForwardedPath}/${path}/${tileParams}${format}${query}`,
       );
     }
   } else {
-    uris.push(`${publicUrl}${path}/${tileParams}.${format}${query}`);
+    uris.push(`${publicUrl}${path}/${tileParams}${format}${query}`);
   }
 
   return uris;

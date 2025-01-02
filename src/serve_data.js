@@ -7,6 +7,9 @@ import clone from 'clone';
 import express from 'express';
 import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
+import SphericalMercator from '@mapbox/sphericalmercator';
+import { Image, createCanvas } from 'canvas';
+import sharp from 'sharp';
 
 import {
   fixTileJSONCenter,
@@ -120,6 +123,142 @@ export const serve_data = {
       return res.status(200).send(data);
     });
 
+    app.get('/:id/elevation/:z/:x/:y', async (req, res, next) => {
+      try {
+        const item = repo?.[req.params.id];
+        if (!item) return res.sendStatus(404);
+        if (!item.source) return res.status(404).send('Missing source');
+        if (!item.tileJSON) return res.status(404).send('Missing tileJSON');
+        if (!item.sourceType) return res.status(404).send('Missing sourceType');
+        const { source, tileJSON, sourceType } = item;
+        if (sourceType !== 'pmtiles' && sourceType !== 'mbtiles') {
+          return res
+            .status(400)
+            .send('Invalid sourceType. Must be pmtiles or mbtiles.');
+        }
+        const encoding = tileJSON?.encoding;
+        if (encoding == null) {
+          return res.status(400).send('Missing tileJSON.encoding');
+        } else if (encoding !== 'terrarium' && encoding !== 'mapbox') {
+          return res
+            .status(400)
+            .send('Invalid encoding. Must be terrarium or mapbox.');
+        }
+        const format = tileJSON?.format;
+        if (format == null) {
+          return res.status(400).send('Missing tileJSON.format');
+        } else if (format !== 'webp' && format !== 'png') {
+          return res.status(400).send('Invalid format. Must be webp or png.');
+        }
+        const z = parseInt(req.params.z, 10);
+        const x = parseFloat(req.params.x);
+        const y = parseFloat(req.params.y);
+        if (tileJSON.minzoom == null || tileJSON.maxzoom == null) {
+          return res.status(404).send(JSON.stringify(tileJSON));
+        }
+        const TILE_SIZE = 256;
+        let tileCenter;
+        let xy;
+        if (Number.isInteger(x) && Number.isInteger(y)) {
+          const intX = parseInt(req.params.x, 10);
+          const intY = parseInt(req.params.y, 10);
+          if (
+            z < tileJSON.minzoom ||
+            z > tileJSON.maxzoom ||
+            intX < 0 ||
+            intY < 0 ||
+            intX >= Math.pow(2, z) ||
+            intY >= Math.pow(2, z)
+          ) {
+            return res.status(404).send('Out of bounds');
+          }
+          xy = [intX, intY];
+          tileCenter = new SphericalMercator().bbox(intX, intY, z);
+        } else {
+          if (
+            z < tileJSON.minzoom ||
+            z > tileJSON.maxzoom ||
+            x < -180 ||
+            y < -90 ||
+            x > 180 ||
+            y > 90
+          ) {
+            return res.status(404).send('Out of bounds');
+          }
+          tileCenter = [y, x, y + 0.1, x + 0.1];
+          const { minX, minY } = new SphericalMercator().xyz(tileCenter, z);
+          xy = [minX, minY];
+        }
+        const fetchTile = await fetchTileData(source, sourceType, z, x, y);
+        if (fetchTile == null) return res.status(204).send();
+
+        let data = fetchTile.data;
+        const image = new Image();
+        await new Promise(async (resolve, reject) => {
+          image.onload = async () => {
+            const canvas = createCanvas(TILE_SIZE, TILE_SIZE);
+            const context = canvas.getContext('2d');
+            context.drawImage(image, 0, 0);
+            const imgdata = context.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
+            const arrayWidth = imgdata.width;
+            const arrayHeight = imgdata.height;
+            const bytesPerPixel = 4;
+            const xPixel = Math.floor(xy[0]);
+            const yPixel = Math.floor(xy[1]);
+            if (
+              xPixel < 0 ||
+              yPixel < 0 ||
+              xPixel >= arrayWidth ||
+              yPixel >= arrayHeight
+            ) {
+              return reject('Out of bounds Pixel');
+            }
+            const index = (yPixel * arrayWidth + xPixel) * bytesPerPixel;
+            const red = imgdata.data[index];
+            const green = imgdata.data[index + 1];
+            const blue = imgdata.data[index + 2];
+            let elevation;
+            if (encoding === 'mapbox') {
+              elevation = -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
+            } else if (encoding === 'terrarium') {
+              elevation = red * 256 + green + blue / 256 - 32768;
+            } else {
+              elevation = 'invalid encoding';
+            }
+            resolve(
+              res.status(200).send({
+                z,
+                x: xy[0],
+                y: xy[1],
+                red,
+                green,
+                blue,
+                latitude: tileCenter[0],
+                longitude: tileCenter[1],
+                elevation,
+              }),
+            );
+          };
+          image.onerror = (err) => reject(err);
+          if (format === 'webp') {
+            try {
+              const img = await sharp(data).toFormat('png').toBuffer();
+              image.src = img;
+            } catch (err) {
+              reject(err);
+            }
+          } else {
+            image.src = data;
+          }
+        });
+      } catch (err) {
+        return res
+          .status(500)
+          .header('Content-Type', 'text/plain')
+          .send(err.message);
+      }
+    });
+
     app.get('/:id.json', (req, res) => {
       const item = repo[req.params.id];
       if (!item) {
@@ -193,6 +332,7 @@ export const serve_data = {
       sourceType = 'pmtiles';
       const metadata = await getPMtilesInfo(source);
 
+      tileJSON['encoding'] = params['encoding'];
       tileJSON['name'] = id;
       tileJSON['format'] = 'pbf';
       Object.assign(tileJSON, metadata);
@@ -213,6 +353,7 @@ export const serve_data = {
       const mbw = await openMbTilesWrapper(inputFile);
       const info = await mbw.getInfo();
       source = mbw.getMbTiles();
+      tileJSON['encoding'] = params['encoding'];
       tileJSON['name'] = id;
       tileJSON['format'] = 'pbf';
 

@@ -238,8 +238,25 @@ For example::
     }
   }
 
-
 The data source does not need to be specified here unless you explicitly want to serve the raw data.
+
+Serving Terrain Tiles
+--------------
+
+If you serve terrain tiles, it is possible to configure an ``encoding`` with ``mapbox`` or ``terrarium`` to enable a terrain preview mode and the ``elevation`` api for the ``data`` endpoint.
+
+For example::
+
+  "data": {
+    "terrain1": {
+      "mbtiles": "terrain1.mbtiles",
+      "encoding": "mapbox"
+    },
+    "terrain2": {
+      "pmtiles": "terrain2.pmtiles"
+      "encoding": "terrarium"
+    }
+  }
 
 Referencing local files from style JSON
 =======================================
@@ -283,7 +300,7 @@ For example::
     "source3": {
       "url": "pmtiles://https://foo.lan/source3.pmtiles",
       "type": "vector"
-    },
+    }
   }
 
 Alternatively, you can use ``pmtiles://{source2}`` to reference existing data object from the config.

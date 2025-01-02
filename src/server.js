@@ -493,7 +493,7 @@ async function start(opts) {
 
           const centerPx = mercator.px([center[0], center[1]], center[2]);
           // Set thumbnail default size to be 256px x 256px
-          style.thumbnail = `${center[2]}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.png`;
+          style.thumbnail = `${Math.floor(center[2])}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.png`;
         }
 
         const tileSize = 512;
@@ -522,14 +522,6 @@ async function start(opts) {
         )}/${center[0].toFixed(5)}`;
       }
 
-      data.is_vector = tileJSON.format === 'pbf';
-      if (!data.is_vector) {
-        if (center) {
-          const centerPx = mercator.px([center[0], center[1]], center[2]);
-          data.thumbnail = `${center[2]}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
-        }
-      }
-
       const tileSize = undefined;
       data.xyz_link = getTileUrls(
         req,
@@ -542,6 +534,24 @@ async function start(opts) {
           pbf: options.pbfAlias,
         },
       )[0];
+
+      data.is_vector = tileJSON.format === 'pbf';
+      if (!data.is_vector) {
+        if (
+          tileJSON.encoding === 'terrarium' ||
+          tileJSON.encoding === 'mapbox'
+        ) {
+          data.elevation_link = getTileUrls(
+            req,
+            tileJSON.tiles,
+            `data/${id}/elevation`,
+          )[0];
+        }
+        if (center) {
+          const centerPx = mercator.px([center[0], center[1]], center[2]);
+          data.thumbnail = `${Math.floor(center[2])}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
+        }
+      }
 
       if (data.filesize) {
         let suffix = 'kB';
@@ -611,17 +621,25 @@ async function start(opts) {
     };
   });
 
-  serveTemplate('/data/:id/', 'data', (req) => {
-    const { id } = req.params;
+  serveTemplate('/data{/:view}/:id/', 'data', (req) => {
+    const { id, view } = req.params;
     const data = serving.data[id];
 
     if (!data) {
       return null;
     }
+    const is_terrain =
+      (data.tileJSON.encoding === 'terrarium' ||
+        data.tileJSON.encoding === 'mapbox') &&
+      view === 'preview';
+
     return {
       ...data,
       id,
-      is_vector: data.tileJSON.format === 'pbf',
+      use_maplibre: data.tileJSON.format === 'pbf' || is_terrain,
+      is_terrain: is_terrain,
+      is_terrainrgb: data.tileJSON.encoding === 'mapbox',
+      terrain_encoding: data.tileJSON.encoding,
     };
   });
 
