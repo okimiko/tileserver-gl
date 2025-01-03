@@ -453,6 +453,8 @@ const respondImage = async (
   overlay = null,
   mode = 'tile',
 ) => {
+  console.log(lat);
+  console.log(lon);
   if (
     Math.abs(lon) > 180 ||
     Math.abs(lat) > 85.06 ||
@@ -724,6 +726,7 @@ async function handleTileRequest(
  * @param {string} req.params.format - The format of the image.
  * @param {Function} next - Express next middleware function.
  * @param {number} maxScaleFactor - The maximum scale factor allowed.
+ * @param verbose
  * @returns {Promise<void>}
  */
 async function handleStaticRequest(
@@ -733,6 +736,7 @@ async function handleStaticRequest(
   res,
   next,
   maxScaleFactor,
+  verbose,
 ) {
   const {
     id,
@@ -742,6 +746,13 @@ async function handleStaticRequest(
     scale: scaleParam,
     format,
   } = req.params;
+  if (verbose) {
+    console.log(
+      `Handling static request for: /styles/${id}/static/${raw ? raw + '/' : ''}${staticType}${widthAndHeight ? '/' + widthAndHeight : ''}${
+        scaleParam ? '@' + scaleParam : ''
+      }.${format}`,
+    );
+  }
   console.log(req.params);
   const item = repo[id];
 
@@ -752,7 +763,6 @@ async function handleStaticRequest(
     if (sizeMatch) {
       const width = parseInt(sizeMatch[1], 10);
       const height = parseInt(sizeMatch[2], 10);
-
       if (
         isNaN(width) ||
         isNaN(height) ||
@@ -775,22 +785,22 @@ async function handleStaticRequest(
       .status(400)
       .send('Invalid width or height provided in size parameter');
   }
+
   const scale = parseScale(scaleParam, maxScaleFactor);
   let isRaw = raw === 'raw';
 
-  if (!item || !staticType || !format || !scale) {
+  const staticTypeMatch = staticType.match(staticTypeRegex);
+  if (!item || !format || !scale || !staticTypeMatch?.groups) {
     return res.sendStatus(404);
   }
 
-  const staticTypeMatch = staticType.match(staticTypeRegex);
   if (staticTypeMatch.groups.lon) {
     // Center Based Static Image
-    const z = staticTypeMatch.groups.zoom;
-    let x = staticTypeMatch.groups.lon;
-    let y = staticTypeMatch.groups.lat;
-    const bearing = staticTypeMatch.groups.bearing;
-    const pitch = staticTypeMatch.groups.pitch;
-
+    const z = parseFloat(staticTypeMatch.groups.zoom) || 0;
+    let x = parseFloat(staticTypeMatch.groups.lon) || 0;
+    let y = parseFloat(staticTypeMatch.groups.lat) || 0;
+    const bearing = parseFloat(staticTypeMatch.groups.bearing) || 0;
+    const pitch = parseInt(staticTypeMatch.groups.pitch) || 0;
     if (z < 0) {
       return res.status(404).send('Invalid zoom');
     }
@@ -807,24 +817,27 @@ async function handleStaticRequest(
 
     const paths = extractPathsFromQuery(req.query, transformer);
     const markers = extractMarkersFromQuery(req.query, options, transformer);
-
     // prettier-ignore
     const overlay = await renderOverlay(
-          z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
-      );
+     z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+   );
 
     // prettier-ignore
     return await respondImage(
-          options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
-      );
+    options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+     );
   } else if (staticTypeMatch.groups.minx) {
     // Area Based Static Image
-    const bbox = [
-      +staticTypeMatch.groups.minx,
-      +staticTypeMatch.groups.miny,
-      +staticTypeMatch.groups.maxx,
-      +staticTypeMatch.groups.maxx,
-    ];
+    const minx = parseFloat(staticTypeMatch.groups.minx) || 0;
+    const miny = parseFloat(staticTypeMatch.groups.miny) || 0;
+    const maxx = parseFloat(staticTypeMatch.groups.maxx) || 0;
+    const maxy = parseFloat(staticTypeMatch.groups.maxy) || 0;
+    if (isNaN(minx) || isNaN(miny) || isNaN(maxx) || isNaN(maxy)) {
+      return res
+        .status(400)
+        .send('Invalid bounding box provided in staticType parameter');
+    }
+    const bbox = [minx, miny, maxx, maxy];
     let center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
 
     const transformer = isRaw
@@ -841,23 +854,27 @@ async function handleStaticRequest(
       center = transformer(center);
     }
 
+    if (Math.abs(center[0]) > 180 || Math.abs(center[1]) > 85.06) {
+      return res.status(400).send('Invalid center');
+    }
+
     const z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query);
     const x = center[0];
     const y = center[1];
     const bearing = 0;
     const pitch = 0;
+
     const paths = extractPathsFromQuery(req.query, transformer);
     const markers = extractMarkersFromQuery(req.query, options, transformer);
-
     // prettier-ignore
     const overlay = await renderOverlay(
-        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
       );
 
     // prettier-ignore
     return await respondImage(
-          options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
-      );
+      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+     );
   } else if (staticTypeMatch.groups.auto) {
     // Area Static Image
     const bearing = 0;
@@ -910,18 +927,17 @@ async function handleStaticRequest(
 
     // prettier-ignore
     const overlay = await renderOverlay(
-        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
-      );
+      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+    );
 
     // prettier-ignore
     return await respondImage(
-          options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
-     );
+        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+      );
   } else {
     return res.sendStatus(404);
   }
 }
-
 const existingFonts = {};
 let maxScaleFactor = 2;
 
@@ -980,7 +996,7 @@ export const serve_rendered = {
                 res,
                 next,
                 maxScaleFactor,
-                defailtTileSize,
+                verbose,
               );
             }
             return res.sendStatus(404);

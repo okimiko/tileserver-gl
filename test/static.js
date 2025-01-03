@@ -78,7 +78,7 @@ describe('Static endpoints', function () {
       testStatic(prefix, '0,0,0/256x256', 'png', 404, 1);
 
       testStatic(prefix, '0,0,-1/256x256', 'png', 404);
-      testStatic(prefix, '0,0,0/256.5x256.5', 'png', 404);
+      testStatic(prefix, '0,0,0/256.5x256.5', 'png', 400);
 
       testStatic(prefix, '0,0,0,/256x256', 'png', 404);
       testStatic(prefix, '0,0,0,0,/256x256', 'png', 404);
