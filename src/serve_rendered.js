@@ -661,7 +661,6 @@ async function handleTileRequest(
   if (!item) {
     return res.sendStatus(404);
   }
-  console.log(req.params);
 
   const modifiedSince = req.get('if-modified-since');
   const cc = req.get('cache-control');
@@ -734,7 +733,6 @@ async function handleStaticRequest(
   res,
   next,
   maxScaleFactor,
-  verbose,
 ) {
   const {
     id,
@@ -744,12 +742,6 @@ async function handleStaticRequest(
     scale: scaleParam,
     format,
   } = req.params;
-  if (verbose) {
-    console.log(
-      `Handling static request for: /styles/${id}/static/${raw ? raw + '/' : ''}${staticType}${widthAndHeight ? '/' + widthAndHeight : ''}${scaleParam ? '@' + scaleParam : ''}.${format}`,
-    );
-  }
-  console.log(req.params);
   const item = repo[id];
 
   let parsedWidth = null;
@@ -983,7 +975,6 @@ export const serve_rendered = {
                 res,
                 next,
                 maxScaleFactor,
-                verbose,
               );
             }
             return res.sendStatus(404);
