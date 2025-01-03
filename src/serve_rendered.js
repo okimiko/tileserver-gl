@@ -453,8 +453,6 @@ const respondImage = async (
   overlay = null,
   mode = 'tile',
 ) => {
-  console.log(lat);
-  console.log(lon);
   if (
     Math.abs(lon) > 180 ||
     Math.abs(lat) > 85.06 ||
@@ -748,9 +746,7 @@ async function handleStaticRequest(
   } = req.params;
   if (verbose) {
     console.log(
-      `Handling static request for: /styles/${id}/static/${raw ? raw + '/' : ''}${staticType}${widthAndHeight ? '/' + widthAndHeight : ''}${
-        scaleParam ? '@' + scaleParam : ''
-      }.${format}`,
+      `Handling static request for: /styles/${id}/static/${raw ? raw + '/' : ''}${staticType}${widthAndHeight ? '/' + widthAndHeight : ''}${scaleParam ? '@' + scaleParam : ''}.${format}`,
     );
   }
   console.log(req.params);
@@ -832,11 +828,6 @@ async function handleStaticRequest(
     const miny = parseFloat(staticTypeMatch.groups.miny) || 0;
     const maxx = parseFloat(staticTypeMatch.groups.maxx) || 0;
     const maxy = parseFloat(staticTypeMatch.groups.maxy) || 0;
-    if (isNaN(minx) || isNaN(miny) || isNaN(maxx) || isNaN(maxy)) {
-      return res
-        .status(400)
-        .send('Invalid bounding box provided in staticType parameter');
-    }
     const bbox = [minx, miny, maxx, maxy];
     let center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
 
@@ -852,10 +843,6 @@ async function handleStaticRequest(
       bbox[2] = maxCorner[0];
       bbox[3] = maxCorner[1];
       center = transformer(center);
-    }
-
-    if (Math.abs(center[0]) > 180 || Math.abs(center[1]) > 85.06) {
-      return res.status(400).send('Invalid center');
     }
 
     const z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query);
