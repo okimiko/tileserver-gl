@@ -196,16 +196,19 @@ export function fixTileJSONCenter(tileJSON) {
  */
 function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
   return new Promise((resolve, reject) => {
+    const fontMatch = name?.match(/^[\w\s-]+$/);
+    if (!name || typeof name !== 'string' || name.trim() === '' || !fontMatch) {
+      console.error('ERROR: Invalid font name: %s', 'invalid');
+      return reject('Invalid font name');
+    }
+    const sanitizedName = fontMatch[0];
+    const filename = path.join(fontPath, sanitizedName, `${range}.pbf`);
+
+    if (!/^\d+-\d+$/.test(range)) {
+      console.error('ERROR: Invalid range: %s', range);
+      return reject('Invalid range');
+    }
     if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
-      if (!name || typeof name !== 'string' || name.trim() === '') {
-        console.error('ERROR: Invalid font name: %s', String(name));
-        return reject('Invalid font name');
-      }
-      if (!/^\d+-\d+$/.test(range)) {
-        console.error('ERROR: Invalid range: %s', range);
-        return reject('Invalid range');
-      }
-      const filename = path.join(fontPath, name, `${range}.pbf`);
       if (!fallbacks) {
         fallbacks = clone(allowedFonts || {});
       }
@@ -213,11 +216,15 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       fs.readFile(filename, (err, data) => {
         if (err) {
-          console.error('ERROR: Font not found: %s, Error: %s', filename, err);
+          console.error(
+            'ERROR: Font not found: %s, Error: %s',
+            filename,
+            String(err),
+          );
           if (fallbacks && Object.keys(fallbacks).length) {
             let fallbackName;
 
-            let fontStyle = name.split(' ').pop();
+            let fontStyle = sanitizedName.split(' ').pop();
             if (['Regular', 'Bold', 'Italic'].indexOf(fontStyle) < 0) {
               fontStyle = 'Regular';
             }
@@ -228,10 +235,10 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
                 fallbackName = Object.keys(fallbacks)[0];
               }
             }
-
             console.error(
-              `ERROR: Trying to use %s as a fallback`,
+              `ERROR: Trying to use %s as a fallback for: %s`,
               fallbackName,
+              sanitizedName,
             );
             delete fallbacks[fallbackName];
             getFontPbf(null, fontPath, fallbackName, range, fallbacks).then(
@@ -239,14 +246,14 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
               reject,
             );
           } else {
-            reject(`Font load error: ${name}`);
+            reject('Font load error');
           }
         } else {
           resolve(data);
         }
       });
     } else {
-      reject(`Font not allowed: ${name}`);
+      reject('Font not allowed');
     }
   });
 }
