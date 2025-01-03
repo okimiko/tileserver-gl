@@ -46,7 +46,9 @@ export const serve_data = {
      */
     app.get('/:id/:z/:x/:y.:format', async (req, res) => {
       if (verbose) {
-        console.log(req.params);
+        console.log(
+          `Handling tile request for: /data/${req.params.id}/${req.params.z}/${req.params.x}/${req.params.y}.${req.params.format}`,
+        );
       }
       const item = repo[req.params.id];
       if (!item) {
@@ -156,6 +158,11 @@ export const serve_data = {
      */
     app.get('/:id/elevation/:z/:x/:y', async (req, res, next) => {
       try {
+        if (verbose) {
+          console.log(
+            `Handling elevation request for: /data/${req.params.id}/elevation/${req.params.z}/${req.params.x}/${req.params.y}`,
+          );
+        }
         const item = repo?.[req.params.id];
         if (!item) return res.sendStatus(404);
         if (!item.source) return res.status(404).send('Missing source');
@@ -292,13 +299,18 @@ export const serve_data = {
     });
 
     /**
-     * Handles requests for metadata for the tiles.
+     * Handles requests for tilejson for the data tiles.
      * @param {object} req - Express request object.
      * @param {object} res - Express response object.
      * @param {string} req.params.id - ID of the data source.
      * @returns {Promise<void>}
      */
     app.get('/:id.json', (req, res) => {
+      if (verbose) {
+        console.log(
+          `Handling tilejson request for: /data/${req.params.id}.json`,
+        );
+      }
       const item = repo[req.params.id];
       if (!item) {
         return res.sendStatus(404);

@@ -35,59 +35,95 @@ export const serve_style = {
   init: function (options, repo, programOpts) {
     const { verbose } = programOpts;
     const app = express().disable('x-powered-by');
-
+    /**
+     * Handles requests for style.json files.
+     * @param {express.Request} req - Express request object.
+     * @param {express.Response} res - Express response object.
+     * @param {express.NextFunction} next - Express next function.
+     * @param {string} req.params.id - ID of the style.
+     * @returns {Promise<void>}
+     */
     app.get('/:id/style.json', (req, res, next) => {
-      const item = repo[req.params.id];
-      if (!item) {
-        return res.sendStatus(404);
+      const { id } = req.params;
+      if (verbose) {
+        console.log(`Handling style request for: /styles/${id}/style.json`);
       }
-      const styleJSON_ = clone(item.styleJSON);
-      for (const name of Object.keys(styleJSON_.sources)) {
-        const source = styleJSON_.sources[name];
-        source.url = fixUrl(req, source.url, item.publicUrl);
-        if (typeof source.data == 'string') {
-          source.data = fixUrl(req, source.data, item.publicUrl);
+      try {
+        const item = repo[id];
+        if (!item) {
+          return res.sendStatus(404);
         }
-      }
-      // mapbox-gl-js viewer cannot handle sprite urls with query
-      if (styleJSON_.sprite) {
-        if (Array.isArray(styleJSON_.sprite)) {
-          styleJSON_.sprite.forEach((spriteItem) => {
-            spriteItem.url = fixUrl(req, spriteItem.url, item.publicUrl);
-          });
-        } else {
-          styleJSON_.sprite = fixUrl(req, styleJSON_.sprite, item.publicUrl);
+        const styleJSON_ = clone(item.styleJSON);
+        for (const name of Object.keys(styleJSON_.sources)) {
+          const source = styleJSON_.sources[name];
+          source.url = fixUrl(req, source.url, item.publicUrl);
+          if (typeof source.data == 'string') {
+            source.data = fixUrl(req, source.data, item.publicUrl);
+          }
         }
+        if (styleJSON_.sprite) {
+          if (Array.isArray(styleJSON_.sprite)) {
+            styleJSON_.sprite.forEach((spriteItem) => {
+              spriteItem.url = fixUrl(req, spriteItem.url, item.publicUrl);
+            });
+          } else {
+            styleJSON_.sprite = fixUrl(req, styleJSON_.sprite, item.publicUrl);
+          }
+        }
+        if (styleJSON_.glyphs) {
+          styleJSON_.glyphs = fixUrl(req, styleJSON_.glyphs, item.publicUrl);
+        }
+        return res.send(styleJSON_);
+      } catch (e) {
+        next(e);
       }
-      if (styleJSON_.glyphs) {
-        styleJSON_.glyphs = fixUrl(req, styleJSON_.glyphs, item.publicUrl);
-      }
-      return res.send(styleJSON_);
     });
 
+    /**
+     * Handles GET requests for sprite images and JSON files.
+     * @param {express.Request} req - Express request object.
+     * @param {express.Response} res - Express response object.
+     * @param {express.NextFunction} next - Express next function.
+     * @param {string} req.params.id - ID of the sprite.
+     * @param {string} [req.params.spriteID='default'] - ID of the specific sprite image, defaults to 'default'.
+     * @param {string} [req.params.scale] - Scale of the sprite image, defaults to ''.
+     * @param {string} req.params.format - Format of the sprite file, 'png' or 'json'.
+     * @returns {Promise<void>}
+     */
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
-      if (verbose) {
-        console.log(req.params);
-      }
-      const { spriteID = 'default', id, format } = req.params;
-      const spriteScale = allowedSpriteScales(req.params.scale);
+      const { spriteID = 'default', id, format, scale } = req.params;
+      const spriteScale = allowedSpriteScales(scale);
 
+      if (verbose) {
+        console.log(
+          `Handling sprite request for: /${id}/sprite/${spriteID}${scale}.${format}`,
+        );
+      }
       const item = repo[id];
       if (!item || !allowedSpriteFormats(format)) {
+        if (verbose)
+          console.error(
+            `Sprite item or format not found for: /${id}/sprite/${spriteID}${scale}.${format}`,
+          );
         return res.sendStatus(404);
       }
-
       const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
       if (!sprite) {
+        if (verbose)
+          console.error(
+            `Sprite not found for: /${id}/sprite/${spriteID}${scale}.${format}`,
+          );
         return res.status(400).send('Bad Sprite ID or Scale');
       }
 
       const filename = `${sprite.path}${spriteScale}.${format}`;
+      if (verbose) console.log(`Loading sprite from: ${filename}`);
 
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       fs.readFile(filename, (err, data) => {
         if (err) {
-          console.error('Sprite load error: %s, Error: %s', filename, err);
+          if (verbose)
+            console.error('Sprite load error: %s, Error: %s', filename, err);
           return res.sendStatus(404);
         }
 
@@ -96,6 +132,10 @@ export const serve_style = {
         } else if (format === 'png') {
           res.header('Content-type', 'image/png');
         }
+        if (verbose)
+          console.log(
+            `Responding with sprite data for /${id}/sprite/${spriteID}${scale}.${format}`,
+          );
         return res.send(data);
       });
     });

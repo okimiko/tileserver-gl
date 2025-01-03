@@ -34,6 +34,7 @@ import {
   isValidHttpUrl,
   fixTileJSONCenter,
   fetchTileData,
+  allowedOptions,
 } from './utils.js';
 import { openPMtiles, getPMtilesInfo } from './pmtiles_adapter.js';
 import { renderOverlay, renderWatermark, renderAttribution } from './render.js';
@@ -635,6 +636,7 @@ const respondImage = async (
  * @param {object} res - Express response object.
  * @param {Function} next - Express next middleware function.
  * @param {number} maxScaleFactor - The maximum scale factor allowed.
+ * @param defailtTileSize
  * @returns {Promise<void>}
  */
 async function handleTileRequest(
@@ -644,6 +646,7 @@ async function handleTileRequest(
   res,
   next,
   maxScaleFactor,
+  defailtTileSize,
 ) {
   const {
     id,
@@ -658,6 +661,7 @@ async function handleTileRequest(
   if (!item) {
     return res.sendStatus(404);
   }
+  console.log(req.params);
 
   const modifiedSince = req.get('if-modified-since');
   const cc = req.get('cache-control');
@@ -670,7 +674,19 @@ async function handleTileRequest(
   const x = parseFloat(xParam) | 0;
   const y = parseFloat(yParam) | 0;
   const scale = parseScale(scaleParam, maxScaleFactor);
-  const parsedTileSize = parseInt(tileSize, 10) || 256;
+
+  let parsedTileSize = defailtTileSize;
+  if (tileSize) {
+    const allowedTileSizes = allowedOptions(['256', '512'], {
+      defaultValue: null,
+    });
+    parsedTileSize = allowedTileSizes(tileSize);
+
+    if (parsedTileSize == null) {
+      return res.status(400).send('Invalid Tile Size');
+    }
+  }
+
   if (
     scale == null ||
     z < 0 ||
@@ -680,7 +696,7 @@ async function handleTileRequest(
     x >= Math.pow(2, z) ||
     y >= Math.pow(2, z)
   ) {
-    return res.status(404).send('Out of bounds');
+    return res.status(400).send('Out of bounds');
   }
 
   const tileCenter = mercator.ll(
@@ -722,14 +738,43 @@ async function handleStaticRequest(
     id,
     p2: raw,
     p3: staticType,
-    p4: width,
-    p5: height,
+    p4: widthAndHeight,
     scale: scaleParam,
     format,
   } = req.params;
+  console.log(req.params);
   const item = repo[id];
-  const parsedWidth = parseInt(width) || 512;
-  const parsedHeight = parseInt(height) || 512;
+
+  let parsedWidth = null;
+  let parsedHeight = null;
+  if (widthAndHeight) {
+    const sizeMatch = widthAndHeight.match(/^(\d+)x(\d+)$/);
+    if (sizeMatch) {
+      const width = parseInt(sizeMatch[1], 10);
+      const height = parseInt(sizeMatch[2], 10);
+
+      if (
+        isNaN(width) ||
+        isNaN(height) ||
+        width !== parseFloat(sizeMatch[1]) ||
+        height !== parseFloat(sizeMatch[2])
+      ) {
+        return res
+          .status(400)
+          .send('Invalid width or height provided in size parameter');
+      }
+      parsedWidth = width;
+      parsedHeight = height;
+    } else {
+      return res
+        .status(400)
+        .send('Invalid width or height provided in size parameter');
+    }
+  } else {
+    return res
+      .status(400)
+      .send('Invalid width or height provided in size parameter');
+  }
   const scale = parseScale(scaleParam, maxScaleFactor);
   let isRaw = raw === 'raw';
 
@@ -740,11 +785,12 @@ async function handleStaticRequest(
   const staticTypeMatch = staticType.match(staticTypeRegex);
   if (staticTypeMatch.groups.lon) {
     // Center Based Static Image
-    const z = parseFloat(staticTypeMatch.groups.zoom) || 0;
-    let x = parseFloat(staticTypeMatch.groups.lon) || 0;
-    let y = parseFloat(staticTypeMatch.groups.lat) || 0;
-    const bearing = parseFloat(staticTypeMatch.groups.bearing) || 0;
-    const pitch = parseInt(staticTypeMatch.groups.pitch) || 0;
+    const z = staticTypeMatch.groups.zoom;
+    let x = staticTypeMatch.groups.lon;
+    let y = staticTypeMatch.groups.lat;
+    const bearing = staticTypeMatch.groups.bearing;
+    const pitch = staticTypeMatch.groups.pitch;
+
     if (z < 0) {
       return res.status(404).send('Invalid zoom');
     }
@@ -764,13 +810,13 @@ async function handleStaticRequest(
 
     // prettier-ignore
     const overlay = await renderOverlay(
-      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
-    );
+          z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+      );
 
     // prettier-ignore
     return await respondImage(
-      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
-    );
+          options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+      );
   } else if (staticTypeMatch.groups.minx) {
     // Area Based Static Image
     const bbox = [
@@ -802,15 +848,16 @@ async function handleStaticRequest(
     const pitch = 0;
     const paths = extractPathsFromQuery(req.query, transformer);
     const markers = extractMarkersFromQuery(req.query, options, transformer);
+
     // prettier-ignore
     const overlay = await renderOverlay(
-      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
-    );
+        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+      );
 
     // prettier-ignore
     return await respondImage(
-      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
-    );
+          options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+      );
   } else if (staticTypeMatch.groups.auto) {
     // Area Static Image
     const bearing = 0;
@@ -863,13 +910,13 @@ async function handleStaticRequest(
 
     // prettier-ignore
     const overlay = await renderOverlay(
-      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
-    );
+        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+      );
 
     // prettier-ignore
     return await respondImage(
-      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
-    );
+          options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+     );
   } else {
     return res.sendStatus(404);
   }
@@ -887,7 +934,7 @@ export const serve_rendered = {
    * @returns {Promise<express.Application>} A promise that resolves to the Express app.
    */
   init: async function (options, repo, programOpts) {
-    const { verbose } = programOpts;
+    const { verbose, tileSize: defailtTileSize = 256 } = programOpts;
     maxScaleFactor = Math.min(Math.floor(options.maxScaleFactor || 3), 9);
     const app = express().disable('x-powered-by');
 
@@ -896,7 +943,7 @@ export const serve_rendered = {
      * @param {object} req - Express request object.
      * @param {object} res - Express response object.
      * @param {string} req.params.id - The id of the style.
-     * @param {string} req.params.p1 - The tile size or static parameter, if available
+     * @param {string} [req.params.p1] - The tile size or static parameter, if available.
      * @param {string} req.params.p2 - The z, static, or raw parameter.
      * @param {string} req.params.p3 - The x or staticType parameter.
      * @param {string} req.params.p4 - The y or width parameter.
@@ -906,14 +953,24 @@ export const serve_rendered = {
      * @returns {Promise<void>}
      */
     app.get(
-      `/:id{/:p1}/:p2/:p3/:p4{x:p5}{@:scale}{.:format}`,
+      `/:id{/:p1}/:p2/:p3/:p4{@:scale}{.:format}`,
       async (req, res, next) => {
         try {
+          const { p1, p2, id, p3, p4, p5, scale, format } = req.params;
+          const requestType =
+            (!p1 && p2 === 'static') || (p1 === 'static' && p2 === 'raw')
+              ? 'static'
+              : 'tile';
+
           if (verbose) {
-            console.log(req.params);
+            console.log(
+              `Handling rendered ${requestType} request for: /styles/${id}${p1 ? '/' + p1 : ''}/${p2}/${p3}/${p4}${p5 ? 'x' + p5 : ''}${
+                scale ? '@' + scale : ''
+              }.${format}`,
+            );
           }
-          const { p1, p2 } = req.params;
-          if ((!p1 && p2 === 'static') || (p1 === 'static' && p2 === 'raw')) {
+
+          if (requestType === 'static') {
             // Route to static if p2 is static
             if (options.serveStaticMaps !== false) {
               return handleStaticRequest(
@@ -923,6 +980,7 @@ export const serve_rendered = {
                 res,
                 next,
                 maxScaleFactor,
+                defailtTileSize,
               );
             }
             return res.sendStatus(404);
@@ -935,6 +993,7 @@ export const serve_rendered = {
             res,
             next,
             maxScaleFactor,
+            defailtTileSize,
           );
         } catch (e) {
           console.log(e);
@@ -944,7 +1003,7 @@ export const serve_rendered = {
     );
 
     /**
-     * Handles requests for tile json endpoint.
+     * Handles requests for rendered tilejson endpoint.
      * @param {object} req - Express request object.
      * @param {object} res - Express response object.
      * @param {string} req.params.id - The id of the tilejson
@@ -957,6 +1016,11 @@ export const serve_rendered = {
         return res.sendStatus(404);
       }
       const tileSize = parseInt(req.params.tileSize, 10) || undefined;
+      if (verbose) {
+        console.log(
+          `Handling rendered tilejson request for: /styles/${tileSize ? tileSize + '/' : ''}${req.params.id}.json`,
+        );
+      }
       const info = clone(item.tileJSON);
       info.tiles = getTileUrls(
         req,

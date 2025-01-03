@@ -23,7 +23,6 @@ export async function serve_font(options, allowedFonts, programOpts) {
 
   /**
    * Handles requests for a font file.
-   *
    * @param {object} req - Express request object.
    * @param {object} res - Express response object.
    * @param {string} req.params.fontstack - Name of the font stack.
@@ -32,7 +31,9 @@ export async function serve_font(options, allowedFonts, programOpts) {
    */
   app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
     if (verbose) {
-      console.log(req.params);
+      console.log(
+        `Handling font request for: /fonts/${req.params.fontstack}/${req.params.range}.pbf`,
+      );
     }
     const fontstack = decodeURI(req.params.fontstack);
     const range = req.params.range;
@@ -60,12 +61,14 @@ export async function serve_font(options, allowedFonts, programOpts) {
 
   /**
    * Handles requests for a list of all available fonts.
-   *
    * @param {object} req - Express request object.
    * @param {object} res - Express response object.
    * @returns {void}
    */
   app.get('/fonts.json', (req, res) => {
+    if (verbose) {
+      console.log('Handling list font request for /fonts.json');
+    }
     res.header('Content-type', 'application/json');
     return res.send(
       Object.keys(options.serveAllFonts ? existingFonts : allowedFonts).sort(),
