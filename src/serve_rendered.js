@@ -267,7 +267,6 @@ function extractPathsFromQuery(query, transformer) {
   }
   return paths;
 }
-
 /**
  * Parses marker options provided via query and sets corresponding attributes
  * on marker object.
@@ -626,6 +625,13 @@ const respondImage = async (
  * @param {object} options - Configuration options for the server.
  * @param {object} repo - The repository object holding style data.
  * @param {object} req - Express request object.
+ * @param {string} req.params.id - The id of the style.
+ * @param {string} req.params.p1 - The tile size parameter, if available.
+ * @param {string} req.params.p2 - The z parameter.
+ * @param {string} req.params.p3 - The x parameter.
+ * @param {string} req.params.p4 - The y parameter.
+ * @param {string} req.params.scale - The scale parameter.
+ * @param {string} req.params.format - The format of the image.
  * @param {object} res - Express response object.
  * @param {Function} next - Express next middleware function.
  * @param {number} maxScaleFactor - The maximum scale factor allowed.
@@ -641,12 +647,12 @@ async function handleTileRequest(
 ) {
   const {
     id,
+    p1: tileSize,
     p2: zParam,
     p3: xParam,
     p4: yParam,
     scale: scaleParam,
     format,
-    p1: tileSize,
   } = req.params;
   const item = repo[id];
   if (!item) {
@@ -694,6 +700,12 @@ async function handleTileRequest(
  * @param {object} repo - The repository object holding style data.
  * @param {object} req - Express request object.
  * @param {object} res - Express response object.
+ * @param {string} req.params.p2 - The raw or static parameter.
+ * @param {string} req.params.p3 - The staticType parameter.
+ * @param {string} req.params.p4 - The width parameter.
+ * @param {string} req.params.p5 - The height parameter.
+ * @param {string} req.params.scale - The scale parameter.
+ * @param {string} req.params.format - The format of the image.
  * @param {Function} next - Express next middleware function.
  * @param {number} maxScaleFactor - The maximum scale factor allowed.
  * @returns {Promise<void>}
@@ -708,32 +720,24 @@ async function handleStaticRequest(
 ) {
   const {
     id,
-    scale: scaleParam,
-    format,
     p2: raw,
-    p3: type,
+    p3: staticType,
     p4: width,
     p5: height,
+    scale: scaleParam,
+    format,
   } = req.params;
   const item = repo[id];
   const parsedWidth = parseInt(width) || 512;
   const parsedHeight = parseInt(height) || 512;
   const scale = parseScale(scaleParam, maxScaleFactor);
-  let isRaw = raw !== undefined;
-  let staticType = type;
-
-  if (!staticType) {
-    //workaround for type when raw is not set
-    staticType = raw;
-    isRaw = false;
-  }
+  let isRaw = raw === 'raw';
 
   if (!item || !staticType || !format || !scale) {
     return res.sendStatus(404);
   }
 
   const staticTypeMatch = staticType.match(staticTypeRegex);
-  console.log(staticTypeMatch);
   if (staticTypeMatch.groups.lon) {
     // Center Based Static Image
     const z = parseFloat(staticTypeMatch.groups.zoom) || 0;
@@ -765,7 +769,7 @@ async function handleStaticRequest(
 
     // prettier-ignore
     return await respondImage(
-        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
     );
   } else if (staticTypeMatch.groups.minx) {
     // Area Based Static Image
@@ -800,12 +804,12 @@ async function handleStaticRequest(
     const markers = extractMarkersFromQuery(req.query, options, transformer);
     // prettier-ignore
     const overlay = await renderOverlay(
-        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
     );
 
     // prettier-ignore
     return await respondImage(
-        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
     );
   } else if (staticTypeMatch.groups.auto) {
     // Area Static Image
@@ -859,12 +863,12 @@ async function handleStaticRequest(
 
     // prettier-ignore
     const overlay = await renderOverlay(
-        z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
+      z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, paths, markers, req.query,
     );
 
     // prettier-ignore
     return await respondImage(
-        options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
+      options, item, z, x, y, bearing, pitch, parsedWidth, parsedHeight, scale, format, res, overlay, 'static',
     );
   } else {
     return res.sendStatus(404);
@@ -879,18 +883,37 @@ export const serve_rendered = {
    * Initializes the serve_rendered module.
    * @param {object} options Configuration options.
    * @param {object} repo Repository object.
+   * @param {object} programOpts - An object containing the program options.
    * @returns {Promise<express.Application>} A promise that resolves to the Express app.
    */
-  init: async function (options, repo) {
+  init: async function (options, repo, programOpts) {
+    const { verbose } = programOpts;
     maxScaleFactor = Math.min(Math.floor(options.maxScaleFactor || 3), 9);
     const app = express().disable('x-powered-by');
 
+    /**
+     * Handles requests for tile images.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.id - The id of the style.
+     * @param {string} req.params.p1 - The tile size or static parameter, if available
+     * @param {string} req.params.p2 - The z, static, or raw parameter.
+     * @param {string} req.params.p3 - The x or staticType parameter.
+     * @param {string} req.params.p4 - The y or width parameter.
+     * @param {string} req.params.p5 - The height parameter.
+     * @param {string} req.params.scale - The scale parameter.
+     * @param {string} req.params.format - The format of the image.
+     * @returns {Promise<void>}
+     */
     app.get(
       `/:id{/:p1}/:p2/:p3/:p4{x:p5}{@:scale}{.:format}`,
       async (req, res, next) => {
         try {
-          const { p2 } = req.params;
-          if (p2 === 'static') {
+          if (verbose) {
+            console.log(req.params);
+          }
+          const { p1, p2 } = req.params;
+          if ((!p1 && p2 === 'static') || (p1 === 'static' && p2 === 'raw')) {
             // Route to static if p2 is static
             if (options.serveStaticMaps !== false) {
               return handleStaticRequest(
@@ -920,6 +943,14 @@ export const serve_rendered = {
       },
     );
 
+    /**
+     * Handles requests for tile json endpoint.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.id - The id of the tilejson
+     * @param {string} [req.params.tileSize] - The size of the tile, if specified.
+     * @returns {void}
+     */
     app.get('{/:tileSize}/:id.json', (req, res, next) => {
       const item = repo[req.params.id];
       if (!item) {

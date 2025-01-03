@@ -29,9 +29,11 @@ export const serve_style = {
    * Initializes the serve_style module.
    * @param {object} options Configuration options.
    * @param {object} repo Repository object.
+   * @param {object} programOpts - An object containing the program options.
    * @returns {express.Application} The initialized Express application.
    */
-  init: function (options, repo) {
+  init: function (options, repo, programOpts) {
+    const { verbose } = programOpts;
     const app = express().disable('x-powered-by');
 
     app.get('/:id/style.json', (req, res, next) => {
@@ -64,6 +66,9 @@ export const serve_style = {
     });
 
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
+      if (verbose) {
+        console.log(req.params);
+      }
       const { spriteID = 'default', id, format } = req.params;
       const spriteScale = allowedSpriteScales(req.params.scale);
 

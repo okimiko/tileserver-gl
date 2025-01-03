@@ -17,11 +17,7 @@ import {
   isValidHttpUrl,
   fetchTileData,
 } from './utils.js';
-import {
-  getPMtilesInfo,
-  getPMtilesTile,
-  openPMtiles,
-} from './pmtiles_adapter.js';
+import { getPMtilesInfo, openPMtiles } from './pmtiles_adapter.js';
 import { gunzipP, gzipP } from './promises.js';
 import { openMbTilesWrapper } from './mbtiles_wrapper.js';
 
@@ -30,12 +26,28 @@ export const serve_data = {
    * Initializes the serve_data module.
    * @param {object} options Configuration options.
    * @param {object} repo Repository object.
+   * @param {object} programOpts - An object containing the program options
    * @returns {express.Application} The initialized Express application.
    */
-  init: function (options, repo) {
+  init: function (options, repo, programOpts) {
+    const { verbose } = programOpts;
     const app = express().disable('x-powered-by');
 
+    /**
+     * Handles requests for tile data, responding with the tile image.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.id - ID of the tile.
+     * @param {string} req.params.z - Z coordinate of the tile.
+     * @param {string} req.params.x - X coordinate of the tile.
+     * @param {string} req.params.y - Y coordinate of the tile.
+     * @param {string} req.params.format - Format of the tile.
+     * @returns {Promise<void>}
+     */
     app.get('/:id/:z/:x/:y.:format', async (req, res) => {
+      if (verbose) {
+        console.log(req.params);
+      }
       const item = repo[req.params.id];
       if (!item) {
         return res.sendStatus(404);
@@ -88,7 +100,14 @@ export const serve_data = {
             data = await gunzipP(data);
             isGzipped = false;
           }
-          data = options.dataDecoratorFunc(id, 'data', data, z, x, y);
+          data = options.dataDecoratorFunc(
+            req.params.id,
+            'data',
+            data,
+            z,
+            x,
+            y,
+          );
         }
       }
 
@@ -112,7 +131,9 @@ export const serve_data = {
         }
         data = JSON.stringify(geojson);
       }
-      delete headers['ETag']; // do not trust the tile ETag -- regenerate
+      if (headers) {
+        delete headers['ETag'];
+      }
       headers['Content-Encoding'] = 'gzip';
       res.set(headers);
 
@@ -123,6 +144,16 @@ export const serve_data = {
       return res.status(200).send(data);
     });
 
+    /**
+     * Handles requests for elevation data.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.id - ID of the elevation data.
+     * @param {string} req.params.z - Z coordinate of the tile.
+     * @param {string} req.params.x - X coordinate of the tile (either integer or float).
+     * @param {string} req.params.y - Y coordinate of the tile (either integer or float).
+     * @returns {Promise<void>}
+     */
     app.get('/:id/elevation/:z/:x/:y', async (req, res, next) => {
       try {
         const item = repo?.[req.params.id];
@@ -189,6 +220,7 @@ export const serve_data = {
           const { minX, minY } = new SphericalMercator().xyz(tileCenter, z);
           xy = [minX, minY];
         }
+
         const fetchTile = await fetchTileData(source, sourceType, z, x, y);
         if (fetchTile == null) return res.status(204).send();
 
@@ -259,6 +291,13 @@ export const serve_data = {
       }
     });
 
+    /**
+     * Handles requests for metadata for the tiles.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.id - ID of the data source.
+     * @returns {Promise<void>}
+     */
     app.get('/:id.json', (req, res) => {
       const item = repo[req.params.id];
       if (!item) {
@@ -289,6 +328,9 @@ export const serve_data = {
    * @param {object} params Parameters object.
    * @param {string} id ID of the data source.
    * @param {object} programOpts - An object containing the program options
+   * @param {string} programOpts.publicUrl Public URL for the data.
+   * @param {boolean} programOpts.verbose Whether verbose logging should be used.
+   * @param {Function} dataResolver Function to resolve data.
    * @returns {Promise<void>}
    */
   add: async function (options, repo, params, id, programOpts) {

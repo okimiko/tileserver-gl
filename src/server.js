@@ -76,7 +76,7 @@ async function start(opts) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (e) {
       console.log('ERROR: Config file not found or invalid!');
-      console.log('    See README.md for instructions and sample data.');
+      console.log('   See README.md for instructions and sample data.');
       process.exit(1);
     }
   }
@@ -167,12 +167,12 @@ async function start(opts) {
     app.use(cors());
   }
 
-  app.use('/data/', serve_data.init(options, serving.data));
+  app.use('/data/', serve_data.init(options, serving.data, opts));
   app.use('/files/', express.static(paths.files));
-  app.use('/styles/', serve_style.init(options, serving.styles));
+  app.use('/styles/', serve_style.init(options, serving.styles, opts));
   if (!isLight) {
     startupPromises.push(
-      serve_rendered.init(options, serving.rendered).then((sub) => {
+      serve_rendered.init(options, serving.rendered, opts).then((sub) => {
         app.use('/styles/', sub);
       }),
     );
@@ -288,7 +288,7 @@ async function start(opts) {
     addStyle(id, item, true, true);
   }
   startupPromises.push(
-    serve_font(options, serving.fonts).then((sub) => {
+    serve_font(options, serving.fonts, opts).then((sub) => {
       app.use('/', sub);
     }),
   );
@@ -342,6 +342,13 @@ async function start(opts) {
       }
     });
   }
+  /**
+   * Handles requests for a list of available styles.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} [req.query.key] - Optional API key.
+   * @returns {void}
+   */
   app.get('/styles.json', (req, res, next) => {
     const result = [];
     const query = req.query.key
@@ -395,15 +402,35 @@ async function start(opts) {
     return arr;
   }
 
+  /**
+   * Handles requests for a rendered tilejson endpoint.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} req.params.tileSize - Optional tile size parameter.
+   * @returns {void}
+   */
   app.get('{/:tileSize}/rendered.json', (req, res, next) => {
     const tileSize = allowedTileSizes(req.params['tileSize']);
     res.send(addTileJSONs([], req, 'rendered', parseInt(tileSize, 10)));
   });
 
+  /**
+   * Handles requests for a data tilejson endpoint.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @returns {void}
+   */
   app.get('/data.json', (req, res) => {
     res.send(addTileJSONs([], req, 'data', undefined));
   });
 
+  /**
+   * Handles requests for a combined rendered and data tilejson endpoint.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} req.params.tileSize - Optional tile size parameter.
+   * @returns {void}
+   */
   app.get('{/:tileSize}/index.json', (req, res, next) => {
     const tileSize = allowedTileSizes(req.params['tileSize']);
     res.send(
@@ -421,6 +448,7 @@ async function start(opts) {
   app.use('/', express.static(path.join(__dirname, '../public/resources')));
 
   const templates = path.join(__dirname, '../public/templates');
+
   /**
    * Serves a Handlebars template.
    * @param {string} urlPath - The URL path to serve the template at
@@ -477,6 +505,12 @@ async function start(opts) {
     }
   }
 
+  /**
+   * Handles requests for the index page, providing a list of available styles and data.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @returns {void}
+   */
   serveTemplate('/', 'index', (req) => {
     let styles = {};
     for (const id of Object.keys(serving.styles || {})) {
@@ -489,11 +523,15 @@ async function start(opts) {
       if (style.serving_rendered) {
         const { center } = style.serving_rendered.tileJSON;
         if (center) {
-          style.viewer_hash = `#${center[2]}/${center[1].toFixed(5)}/${center[0].toFixed(5)}`;
+          style.viewer_hash = `#${center[2]}/${center[1].toFixed(
+            5,
+          )}/${center[0].toFixed(5)}`;
 
           const centerPx = mercator.px([center[0], center[1]], center[2]);
           // Set thumbnail default size to be 256px x 256px
-          style.thumbnail = `${Math.floor(center[2])}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.png`;
+          style.thumbnail = `${Math.floor(center[2])}/${Math.floor(
+            centerPx[0] / 256,
+          )}/${Math.floor(centerPx[1] / 256)}.png`;
         }
 
         const tileSize = 512;
@@ -549,7 +587,9 @@ async function start(opts) {
         }
         if (center) {
           const centerPx = mercator.px([center[0], center[1]], center[2]);
-          data.thumbnail = `${Math.floor(center[2])}/${Math.floor(centerPx[0] / 256)}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
+          data.thumbnail = `${Math.floor(center[2])}/${Math.floor(
+            centerPx[0] / 256,
+          )}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
         }
       }
 
@@ -574,6 +614,13 @@ async function start(opts) {
     };
   });
 
+  /**
+   * Handles requests for a map viewer template for a specific style.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} req.params.id - ID of the style.
+   * @returns {void}
+   */
   serveTemplate('/styles/:id/', 'viewer', (req) => {
     const { id } = req.params;
     const style = clone(((serving.styles || {})[id] || {}).styleJSON);
@@ -590,6 +637,13 @@ async function start(opts) {
     };
   });
 
+  /**
+   * Handles requests for a Web Map Tile Service (WMTS) XML template.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} req.params.id - ID of the style.
+   * @returns {void}
+   */
   serveTemplate('/styles/:id/wmts.xml', 'wmts', (req) => {
     const { id } = req.params;
     const wmts = clone((serving.styles || {})[id]);
@@ -621,6 +675,14 @@ async function start(opts) {
     };
   });
 
+  /**
+   * Handles requests for a data view template for a specific data source.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} req.params.id - ID of the data source.
+   * @param {string} [req.params.view] - Optional view type.
+   * @returns {void}
+   */
   serveTemplate('/data{/:view}/:id/', 'data', (req) => {
     const { id, view } = req.params;
     const data = serving.data[id];
@@ -649,6 +711,12 @@ async function start(opts) {
     startupComplete = true;
   });
 
+  /**
+   * Handles requests to see the health of the server.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @returns {void}
+   */
   app.get('/health', (req, res) => {
     if (startupComplete) {
       return res.status(200).send('OK');
@@ -678,7 +746,6 @@ async function start(opts) {
     startupPromise,
   };
 }
-
 /**
  * Stop the server gracefully
  * @param {string} signal Name of the received signal

@@ -8,9 +8,11 @@ import { getFontsPbf, listFonts } from './utils.js';
  * Initializes and returns an Express app that serves font files.
  * @param {object} options - Configuration options for the server.
  * @param {object} allowedFonts - An object containing allowed fonts.
+ * @param {object} programOpts - An object containing the program options.
  * @returns {Promise<express.Application>} - A promise that resolves to the Express app.
  */
-export async function serve_font(options, allowedFonts) {
+export async function serve_font(options, allowedFonts, programOpts) {
+  const { verbose } = programOpts;
   const app = express().disable('x-powered-by');
 
   const lastModified = new Date().toUTCString();
@@ -19,7 +21,18 @@ export async function serve_font(options, allowedFonts) {
 
   const existingFonts = {};
 
+  /**
+   * Handles requests for a font file.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {string} req.params.fontstack - Name of the font stack.
+   * @param {string} req.params.range - The range of the font (e.g. 0-255).
+   * @returns {Promise<void>}
+   */
   app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
+    if (verbose) {
+      console.log(req.params);
+    }
     const fontstack = decodeURI(req.params.fontstack);
     const range = req.params.range;
 
@@ -41,6 +54,12 @@ export async function serve_font(options, allowedFonts) {
     }
   });
 
+  /**
+   * Handles requests for a list of all available fonts.
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @returns {void}
+   */
   app.get('/fonts.json', (req, res) => {
     res.header('Content-type', 'application/json');
     return res.send(
