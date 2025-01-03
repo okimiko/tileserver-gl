@@ -674,12 +674,12 @@ async function handleTileRequest(
   const y = parseFloat(yParam) | 0;
   const scale = parseScale(scaleParam, maxScaleFactor);
 
-  let parsedTileSize = defailtTileSize;
+  let parsedTileSize = parseInt(defailtTileSize, 10);
   if (tileSize) {
     const allowedTileSizes = allowedOptions(['256', '512'], {
       defaultValue: null,
     });
-    parsedTileSize = allowedTileSizes(tileSize);
+    parsedTileSize = parseInt(allowedTileSizes(tileSize), 10);
 
     if (parsedTileSize == null) {
       return res.status(400).send('Invalid Tile Size');
