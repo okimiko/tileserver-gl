@@ -198,7 +198,7 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
   return new Promise((resolve, reject) => {
     if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
       if (!name || typeof name !== 'string' || name.trim() === '') {
-        console.error('ERROR: Invalid font name: %s', name);
+        console.error('ERROR: Invalid font name: %s', String(name));
         return reject('Invalid font name');
       }
       if (!/^\d+-\d+$/.test(range)) {
