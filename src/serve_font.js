@@ -23,6 +23,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
 
   /**
    * Handles requests for a font file.
+   *
    * @param {object} req - Express request object.
    * @param {object} res - Express response object.
    * @param {string} req.params.fontstack - Name of the font stack.
@@ -49,13 +50,17 @@ export async function serve_font(options, allowedFonts, programOpts) {
       res.header('Last-Modified', lastModified);
       return res.send(concatenated);
     } catch (err) {
-      console.error('Error serving font:', err);
-      return res.status(400).header('Content-Type', 'text/plain').send(err);
+      console.error(`Error serving font: ${fontstack}/${range}.pbf`, err);
+      return res
+        .status(400)
+        .header('Content-Type', 'text/plain')
+        .send('Error serving font');
     }
   });
 
   /**
    * Handles requests for a list of all available fonts.
+   *
    * @param {object} req - Express request object.
    * @param {object} res - Express response object.
    * @returns {void}
