@@ -30,8 +30,14 @@ export async function serve_font(options, allowedFonts, programOpts) {
    * @returns {Promise<void>}
    */
   app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
+    if (verbose) {
+      console.log(
+        `Handling font request for: /fonts/%s/%s.pbf`,
+        req.params.fontstack,
+        req.params.range,
+      );
+    }
     let fontstack = req.params.fontstack;
-    let range = req.params.range;
     const fontStackParts = fontstack.split(',');
     const sanitizedFontStack = fontStackParts
       .map((font) => {
@@ -43,15 +49,10 @@ export async function serve_font(options, allowedFonts, programOpts) {
     if (sanitizedFontStack.length == 0) {
       return res.status(400).send('Invalid font stack format');
     }
-
-    if (verbose) {
-      console.log(
-        `Handling font request for: /fonts/%s/%s.pbf`,
-        sanitizedFontStack,
-        String(range),
-      );
-    }
     fontstack = decodeURI(sanitizedFontStack);
+    let range = req.params.range;
+    const rangeMatch = range?.match(/^[\d-]+$/);
+    const sanitizedRange = rangeMatch?.[0] || 'invalid';
 
     try {
       const concatenated = await getFontsPbf(
@@ -69,7 +70,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
       console.error(
         `Error serving font: %s/%s.pbf, Error: %s`,
         fontstack,
-        String(range),
+        sanitizedRange,
         String(err),
       );
       return res
@@ -77,7 +78,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
         .header('Content-Type', 'text/plain')
         .send('Error serving font');
     }
-  }); 
+  });
 
   /**
    * Handles requests for a list of all available fonts.
