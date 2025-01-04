@@ -118,7 +118,7 @@ export const serve_style = {
       if (!item || !validatedFormat) {
         if (verbose)
           console.error(
-            `Sprite item, format, or scale not found for: /styles/%s/sprite/%s%s%s`,
+            `Sprite item or format not found for: /styles/%s/sprite/%s%s%s`,
             sanitizedId,
             sanitizedSpriteID,
             sanitizedScale,
@@ -126,19 +126,26 @@ export const serve_style = {
           );
         return res.sendStatus(404);
       }
-
       const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
       const spriteScale = allowedSpriteScales(scale);
       if (!sprite || spriteScale === null) {
         if (verbose)
           console.error(
-            `Sprite not found for: /styles/%s/sprite/%s%s%s`,
+            `Bad Sprite ID or Scale for: /styles/%s/sprite/%s%s%s`,
             sanitizedId,
             sanitizedSpriteID,
             sanitizedScale,
             sanitizedFormat,
           );
         return res.status(400).send('Bad Sprite ID or Scale');
+      }
+
+      const modifiedSince = req.get('if-modified-since');
+      const cc = req.get('cache-control');
+      if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
+        if (new Date(item.lastModified) <= new Date(modifiedSince)) {
+          return res.sendStatus(304);
+        }
       }
 
       const sanitizedSpritePath = sprite.path.replace(/^(\.\.\/)+/, '');
@@ -156,6 +163,7 @@ export const serve_style = {
             );
           return res.sendStatus(404);
         }
+
         if (validatedFormat === 'json') {
           res.header('Content-type', 'application/json');
         } else if (validatedFormat === 'png') {
@@ -169,6 +177,7 @@ export const serve_style = {
             sanitizedScale,
             sanitizedFormat,
           );
+        res.set({ 'Last-Modified': item.lastModified });
         return res.send(data);
       });
     });
