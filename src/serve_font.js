@@ -35,7 +35,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
     const sanitizedFontStack = fontStackParts
       .map((font) => {
         const fontMatch = font?.match(/^[\w\s-]+$/);
-        return fontMatch?.[0];
+        return fontMatch?.[0] || 'invalid';
       })
       .filter(Boolean)
       .join(',');
