@@ -13,17 +13,25 @@ const httpTester = /^https?:\/\//i;
 const allowedSpriteFormats = allowedOptions(['png', 'json']);
 
 /**
- * Checks and formats sprite scale
- * @param {string} scale string containing the scale
- * @returns {string} formated string for the scale or empty string if scale is invalid
+ * Checks if a string is a valid sprite scale and returns it if it is within the allowed range, and null if it does not conform.
+ * @param {string} scale - The scale string to validate (e.g., '2x', '3x').
+ * @param {number} [maxScale] - The maximum scale value. If no value is passed in, it defaults to a value of 3.
+ * @returns {string|null} - The valid scale string or null if invalid.
  */
-function allowedSpriteScales(scale) {
-  if (!scale) return '';
-  const match = scale.match(/(\d+)x/);
-  const parsedScale = match ? parseInt(match[1], 10) : 1;
-  return '@' + Math.min(parsedScale, 3) + 'x';
+function allowedSpriteScales(scale, maxScale = 3) {
+  if (!scale) {
+    return '';
+  }
+  const match = scale?.match(/^([2-9]\d*)x$/);
+  if (!match) {
+    return null;
+  }
+  const parsedScale = parseInt(match[1], 10);
+  if (parsedScale <= maxScale) {
+    return `@${parsedScale}x`;
+  }
+  return null;
 }
-
 export const serve_style = {
   /**
    * Initializes the serve_style module.
@@ -92,26 +100,27 @@ export const serve_style = {
      */
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
       const { spriteID = 'default', id, format, scale } = req.params;
-      const spriteScale = allowedSpriteScales(scale);
-
       if (verbose) {
         console.log(
-          `Handling sprite request for: /${id}/sprite/${spriteID}${scale}.${format}`,
+          `Handling sprite request for: /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
         );
       }
+
       const item = repo[id];
-      if (!item || !allowedSpriteFormats(format)) {
+      const spriteScale = allowedSpriteScales(scale);
+      if (!item || !allowedSpriteFormats(format) || spriteScale === null) {
         if (verbose)
           console.error(
-            `Sprite item or format not found for: /${id}/sprite/${spriteID}${scale}.${format}`,
+            `Sprite item, format, or scale not found for: /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
           );
         return res.sendStatus(404);
       }
+
       const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
       if (!sprite) {
         if (verbose)
           console.error(
-            `Sprite not found for: /${id}/sprite/${spriteID}${scale}.${format}`,
+            `Sprite not found for: /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
           );
         return res.status(400).send('Bad Sprite ID or Scale');
       }
@@ -134,7 +143,7 @@ export const serve_style = {
         }
         if (verbose)
           console.log(
-            `Responding with sprite data for /${id}/sprite/${spriteID}${scale}.${format}`,
+            `Responding with sprite data for /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
           );
         return res.send(data);
       });
