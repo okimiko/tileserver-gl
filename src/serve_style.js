@@ -100,13 +100,14 @@ export const serve_style = {
      */
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
       const { spriteID = 'default', id, format, scale } = req.params;
+      const sanitizedId = String(id);
       const sanitizedScale = scale ? String(scale) : '';
       const sanitizedSpriteID = String(spriteID);
       const sanitizedFormat = format ? '.' + String(format) : '';
       if (verbose) {
         console.log(
           `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
-          id,
+          sanitizedId,
           sanitizedSpriteID,
           sanitizedScale,
           sanitizedFormat,
@@ -118,7 +119,7 @@ export const serve_style = {
         if (verbose)
           console.error(
             `Sprite item, format, or scale not found for: /styles/%s/sprite/%s%s%s`,
-            id,
+            sanitizedId,
             sanitizedSpriteID,
             sanitizedScale,
             sanitizedFormat,
@@ -132,7 +133,7 @@ export const serve_style = {
         if (verbose)
           console.error(
             `Sprite not found for: /styles/%s/sprite/%s%s%s`,
-            id,
+            sanitizedId,
             sanitizedSpriteID,
             sanitizedScale,
             sanitizedFormat,
@@ -155,7 +156,6 @@ export const serve_style = {
             );
           return res.sendStatus(404);
         }
-
         if (validatedFormat === 'json') {
           res.header('Content-type', 'application/json');
         } else if (validatedFormat === 'png') {
@@ -164,7 +164,7 @@ export const serve_style = {
         if (verbose)
           console.log(
             `Responding with sprite data for /styles/%s/sprite/%s%s%s`,
-            id,
+            sanitizedId,
             sanitizedSpriteID,
             sanitizedScale,
             sanitizedFormat,
