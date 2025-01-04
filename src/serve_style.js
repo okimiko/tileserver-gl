@@ -122,8 +122,9 @@ export const serve_style = {
           );
         return res.sendStatus(404);
       }
-      const spriteScale = allowedSpriteScales(scale);
+
       const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
+      const spriteScale = allowedSpriteScales(scale);
       if (!sprite || spriteScale === null) {
         if (verbose)
           console.error(
@@ -136,7 +137,9 @@ export const serve_style = {
         return res.status(400).send('Bad Sprite ID or Scale');
       }
 
-      const filename = `${sprite.path}${spriteScale}.${validatedFormat}`;
+      const sanitizedSpritePath = sprite.path.replace(/^(\.\.\/)+/, '');
+
+      const filename = `${sanitizedSpritePath}${spriteScale}.${validatedFormat}`;
       if (verbose) console.log(`Loading sprite from: %s`, filename);
 
       // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -151,9 +154,9 @@ export const serve_style = {
           return res.sendStatus(404);
         }
 
-        if (format === 'json') {
+        if (validatedFormat === 'json') {
           res.header('Content-type', 'application/json');
-        } else if (format === 'png') {
+        } else if (validatedFormat === 'png') {
           res.header('Content-type', 'image/png');
         }
         if (verbose)
