@@ -1142,15 +1142,16 @@ export const serve_rendered = {
               const response = {};
               response.data = fetchTile.data;
               let headers = fetchTile.headers;
-              let isGzipped =
-                response.data.slice(0, 2).indexOf(Buffer.from([0x1f, 0x8b])) ===
-                0;
 
               if (headers['Last-Modified']) {
                 response.modified = new Date(headers['Last-Modified']);
               }
 
               if (format === 'pbf') {
+                let isGzipped =
+                  response.data
+                    .slice(0, 2)
+                    .indexOf(Buffer.from([0x1f, 0x8b])) === 0;
                 if (isGzipped) {
                   response.data = await gunzipP(response.data);
                 }
