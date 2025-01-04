@@ -11,6 +11,7 @@
   <script src="{{public_url}}maplibre-gl-inspect.js{{&key_query}}"></script>
   <script src="{{public_url}}elevation-control.js{{&key_query}}"></script>
   <script src="{{public_url}}contour-control.js{{&key_query}}"></script>
+  <script src="{{public_url}}elevation-control.js{{&key_query}}"></script>
   <style>
     body {background:#fff;color:#333;font-family:Arial, sans-serif;}
     {{^is_terrain}}
@@ -73,9 +74,9 @@
     };
     {{/is_terrain}}
     {{#is_terrain}}
-    
+
     let baseUrl = window.location.origin;
-    
+
     var style = {
       version: 8,
       sources: {
@@ -94,7 +95,7 @@
           "tiles": [ baseUrl + "/data/{{id}}/contour/{z}/{x}/{y}" ],
         }
       },
-      "glyphs": "local://fonts/{fontstack}/{range}.pbf",
+      "glyphs": "/fonts/{fontstack}/{range}.pbf",
       "terrain": {
         "source": "terrain"
       },
@@ -127,24 +128,20 @@
           }
         },
         {
-          "id": 'contour-label',
-          "type": 'symbol',
-          "source": 'contour',
-          "source-layer": 'contours',
-          "filter": ['>', ['get', 'level'], 0],
+          "id": "contour-label",
+          "type": "symbol",
+          "source": "contour",
+          "source-layer": "contours",
+          "filter": [">", ["get", "ele"], 0 ],
           "paint": {
-            'text-halo-color': 'white',
-            'text-halo-width': 1
+            "text-halo-color": "white",
+            "text-halo-width": 1
           },
           "layout": {
-            'symbol-placement': 'line',
-            'text-size': 10,
-            'text-field': [
-              'concat',
-              ['number-format', ['get', 'ele'], {}],
-              '\''
-            ],
-            'text-font': ['Noto Sans Bold']
+            "symbol-placement": "line",
+            "text-size": 10,
+            "text-field": "{ele}",
+            "text-font": ["Noto Sans Bold"]
           }
         }
       ]
@@ -179,11 +176,11 @@
       })
     );
 
-    //map.addControl(
-    //  new ElevationInfo({
-    //    url: baseUrl + "/data/{{id}}/elvation/{z}/{x}/{y}"
-    //  })
-    //);
+    map.addControl(
+      new ElevationInfoControl({
+        url: baseUrl + "/data/{{id}}/elvation/{z}/{x}/{y}"
+      })
+    );
     {{/is_terrain}}
     {{^is_terrain}}
 

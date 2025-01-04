@@ -26,7 +26,7 @@ class MaplibreContourControl {
           this.controlContainer.classList.add("maplibre-ctrl-contour-active");
           this.contourButton.title = "Disable Contours";
         } else {
-          this.contourButton.title = "Ensable Contours";
+          this.contourButton.title = "Enable Contours";
         }
       });
     });
