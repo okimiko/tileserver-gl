@@ -54,7 +54,7 @@ export const serve_style = {
     app.get('/:id/style.json', (req, res, next) => {
       const { id } = req.params;
       if (verbose) {
-        console.log(`Handling style request for: /styles/${id}/style.json`);
+        console.log('Handling style request for: /styles/%s/style.json', id);
       }
       try {
         const item = repo[id];
