@@ -665,7 +665,9 @@ async function handleTileRequest(
   const modifiedSince = req.get('if-modified-since');
   const cc = req.get('cache-control');
   if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
-    if (new Date(item.lastModified) <= new Date(modifiedSince)) {
+    const lastDate = new Date(item.lastModified).getTime();
+    const modDate = new Date(modifiedSince).getTime();
+    if (lastDate === modDate) {
       return res.sendStatus(304);
     }
   }

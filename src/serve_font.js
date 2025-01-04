@@ -42,6 +42,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
     if (sanitizedFontStack.length == 0) {
       return res.status(400).send('Invalid font stack format');
     }
+
     fontstack = decodeURI(sanitizedFontStack);
     let range = req.params.range;
     const rangeMatch = range?.match(/^[\d-]+$/);
@@ -52,6 +53,16 @@ export async function serve_font(options, allowedFonts, programOpts) {
         sanitizedFontStack,
         sanitizedRange,
       );
+    }
+
+    const modifiedSince = req.get('if-modified-since');
+    const cc = req.get('cache-control');
+    if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
+      const lastDate = new Date(lastModified).getTime();
+      const modDate = new Date(modifiedSince).getTime();
+      if (lastDate === modDate) {
+        return res.sendStatus(304);
+      }
     }
 
     try {
