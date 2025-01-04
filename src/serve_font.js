@@ -48,7 +48,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
       console.log(
         `Handling font request for: /fonts/%s/%s.pbf`,
         sanitizedFontStack,
-        range,
+        String(range),
       );
     }
     fontstack = decodeURI(sanitizedFontStack);
