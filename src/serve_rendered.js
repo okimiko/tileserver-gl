@@ -1153,7 +1153,6 @@ export const serve_rendered = {
               if (format === 'pbf') {
                 if (isGzipped) {
                   response.data = await gunzipP(response.data);
-                  isGzipped = false;
                 }
                 if (options.dataDecoratorFunc) {
                   response.data = options.dataDecoratorFunc(
