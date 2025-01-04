@@ -25,6 +25,7 @@
     #layerList div div {width:15px;height:15px;display:inline-block;}
     .maplibre-ctrl-elevation { padding-left: 5px; padding-right: 5px; }
     .maplibre-ctrl-contour-active button { color: #33b5e5; font-weight: bold; }
+    .maplibre-ctrl-elevation { padding-left: 5px; padding-right: 5px; }
   </style>
   {{/use_maplibre}}
   {{^use_maplibre}}
@@ -178,7 +179,7 @@
 
     map.addControl(
       new ElevationInfoControl({
-        url: baseUrl + "/data/{{id}}/elvation/{z}/{x}/{y}"
+        url: baseUrl + "/data/{{id}}/elevation/{z}/{x}/{y}"
       })
     );
     {{/is_terrain}}
