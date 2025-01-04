@@ -102,37 +102,52 @@ export const serve_style = {
       const { spriteID = 'default', id, format, scale } = req.params;
       if (verbose) {
         console.log(
-          `Handling sprite request for: /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
+          `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
+          id,
+          spriteID,
+          scale ? scale : '',
+          format ? '.' + format : '',
         );
       }
-
       const item = repo[id];
-      const spriteScale = allowedSpriteScales(scale);
-      if (!item || !allowedSpriteFormats(format) || spriteScale === null) {
+      const validatedFormat = allowedSpriteFormats(format);
+      if (!item || !validatedFormat) {
         if (verbose)
           console.error(
-            `Sprite item, format, or scale not found for: /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
+            `Sprite item, format, or scale not found for: /styles/%s/sprite/%s%s%s`,
+            id,
+            spriteID,
+            scale ? scale : '',
+            format ? '.' + format : '',
           );
         return res.sendStatus(404);
       }
-
+      const spriteScale = allowedSpriteScales(scale);
       const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
-      if (!sprite) {
+      if (!sprite || spriteScale === null) {
         if (verbose)
           console.error(
-            `Sprite not found for: /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
+            `Sprite not found for: /styles/%s/sprite/%s%s%s`,
+            id,
+            spriteID,
+            scale ? scale : '',
+            format ? '.' + format : '',
           );
         return res.status(400).send('Bad Sprite ID or Scale');
       }
 
-      const filename = `${sprite.path}${spriteScale}.${format}`;
-      if (verbose) console.log(`Loading sprite from: ${filename}`);
+      const filename = `${sprite.path}${spriteScale}.${validatedFormat}`;
+      if (verbose) console.log(`Loading sprite from: %s`, filename);
 
       // eslint-disable-next-line security/detect-non-literal-fs-filename
       fs.readFile(filename, (err, data) => {
         if (err) {
           if (verbose)
-            console.error('Sprite load error: %s, Error: %s', filename, err);
+            console.error(
+              'Sprite load error: %s, Error: %s',
+              filename,
+              String(err),
+            );
           return res.sendStatus(404);
         }
 
@@ -143,7 +158,11 @@ export const serve_style = {
         }
         if (verbose)
           console.log(
-            `Responding with sprite data for /styles/${id}/sprite/${spriteID}${scale ? scale : ''}${format ? '.' + format : ''}`,
+            `Responding with sprite data for /styles/%s/sprite/%s%s%s`,
+            id,
+            spriteID,
+            scale ? scale : '',
+            format ? '.' + format : '',
           );
         return res.send(data);
       });
