@@ -198,27 +198,22 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
   return new Promise((resolve, reject) => {
     if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
       const fontMatch = name?.match(/^[\w\s-]+$/);
+      const sanitizedName = fontMatch?.[0] || 'invalid';
       if (
         !name ||
         typeof name !== 'string' ||
         name.trim() === '' ||
         !fontMatch
       ) {
-        console.error('ERROR: Invalid font name: %s', 'invalid');
+        console.error('ERROR: Invalid font name: %s', sanitizedName);
         return reject('Invalid font name');
       }
-      const sanitizedName = fontMatch[0];
-      console.error('ERROR: Invalid font name: %s', sanitizedName);
+
       if (!/^\d+-\d+$/.test(range)) {
         console.error('ERROR: Invalid range: %s', range);
         return reject('Invalid range');
       }
-      const sanitizedFontPath = fontPath.replace(/^(\.\.\/)+/, '');
-      const filename = path.join(
-        sanitizedFontPath,
-        sanitizedName,
-        `${range}.pbf`,
-      );
+      const filename = path.join(fontPath, sanitizedName, `${range}.pbf`);
       if (!fallbacks) {
         fallbacks = clone(allowedFonts || {});
       }
@@ -245,7 +240,6 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
                 fallbackName = Object.keys(fallbacks)[0];
               }
             }
-
             console.error(
               `ERROR: Trying to use %s as a fallback for: %s`,
               fallbackName,
@@ -268,7 +262,6 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
     }
   });
 }
-
 /**
  * Combines multiple font pbf buffers into one.
  * @param {object} allowedFonts - An object of allowed fonts.
