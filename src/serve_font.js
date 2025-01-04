@@ -70,7 +70,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
       console.error(
         `Error serving font: %s/%s.pbf, Error: %s`,
         fontstack,
-        String(range),
+        sanitizedRange,
         String(err),
       );
       return res
