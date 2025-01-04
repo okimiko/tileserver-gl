@@ -942,7 +942,6 @@ export const serve_rendered = {
      * @param {string} req.params.p2 - The z, static, or raw parameter.
      * @param {string} req.params.p3 - The x or staticType parameter.
      * @param {string} req.params.p4 - The y or width parameter.
-     * @param {string} req.params.p5 - The height parameter.
      * @param {string} req.params.scale - The scale parameter.
      * @param {string} req.params.format - The format of the image.
      * @returns {Promise<void>}
@@ -951,17 +950,22 @@ export const serve_rendered = {
       `/:id{/:p1}/:p2/:p3/:p4{@:scale}{.:format}`,
       async (req, res, next) => {
         try {
-          const { p1, p2, id, p3, p4, p5, scale, format } = req.params;
+          const { p1, p2, id, p3, p4, scale, format } = req.params;
           const requestType =
             (!p1 && p2 === 'static') || (p1 === 'static' && p2 === 'raw')
               ? 'static'
               : 'tile';
-
           if (verbose) {
             console.log(
-              `Handling rendered ${requestType} request for: /styles/${id}${p1 ? '/' + p1 : ''}/${p2}/${p3}/${p4}${p5 ? 'x' + p5 : ''}${
-                scale ? '@' + scale : ''
-              }.${format}`,
+              `Handling rendered %s request for: /styles/%s%s/%s/%s/%s%s.%s`,
+              requestType,
+              id,
+              p1 ? '/' + p1 : '',
+              p2,
+              p3,
+              p4,
+              scale ? '@' + scale : '',
+              format,
             );
           }
 
