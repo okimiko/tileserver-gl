@@ -100,13 +100,16 @@ export const serve_style = {
      */
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
       const { spriteID = 'default', id, format, scale } = req.params;
+      const sanitizedScale = scale ? String(scale) : '';
+      const sanitizedSpriteID = String(spriteID);
+      const sanitizedFormat = format ? '.' + String(format) : '';
       if (verbose) {
         console.log(
           `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
           id,
-          spriteID,
-          scale ? scale : '',
-          format ? '.' + format : '',
+          sanitizedSpriteID,
+          sanitizedScale,
+          sanitizedFormat,
         );
       }
       const item = repo[id];
@@ -116,9 +119,9 @@ export const serve_style = {
           console.error(
             `Sprite item, format, or scale not found for: /styles/%s/sprite/%s%s%s`,
             id,
-            spriteID,
-            scale ? scale : '',
-            format ? '.' + format : '',
+            sanitizedSpriteID,
+            sanitizedScale,
+            sanitizedFormat,
           );
         return res.sendStatus(404);
       }
@@ -130,15 +133,14 @@ export const serve_style = {
           console.error(
             `Sprite not found for: /styles/%s/sprite/%s%s%s`,
             id,
-            spriteID,
-            scale ? scale : '',
-            format ? '.' + format : '',
+            sanitizedSpriteID,
+            sanitizedScale,
+            sanitizedFormat,
           );
         return res.status(400).send('Bad Sprite ID or Scale');
       }
 
       const sanitizedSpritePath = sprite.path.replace(/^(\.\.\/)+/, '');
-
       const filename = `${sanitizedSpritePath}${spriteScale}.${validatedFormat}`;
       if (verbose) console.log(`Loading sprite from: %s`, filename);
 
@@ -163,9 +165,9 @@ export const serve_style = {
           console.log(
             `Responding with sprite data for /styles/%s/sprite/%s%s%s`,
             id,
-            spriteID,
-            scale ? scale : '',
-            format ? '.' + format : '',
+            sanitizedSpriteID,
+            sanitizedScale,
+            sanitizedFormat,
           );
         return res.send(data);
       });
