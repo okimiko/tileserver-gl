@@ -69,7 +69,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
       console.error(
         `Error serving font: %s/%s.pbf, Error: %s`,
         fontstack,
-        range,
+        String(range),
         String(err),
       );
       return res
@@ -77,7 +77,7 @@ export async function serve_font(options, allowedFonts, programOpts) {
         .header('Content-Type', 'text/plain')
         .send('Error serving font');
     }
-  });
+  }); 
 
   /**
    * Handles requests for a list of all available fonts.
