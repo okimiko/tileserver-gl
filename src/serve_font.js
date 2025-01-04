@@ -38,12 +38,18 @@ export async function serve_font(options, allowedFonts, programOpts) {
       );
     }
     let fontstack = req.params.fontstack;
-    const fontStackMatch = fontstack?.match(/^[\w\s-]+$/);
-    if (!fontStackMatch) {
+    const fontStackParts = fontstack.split(',');
+    const sanitizedFontStack = fontStackParts
+      .map((font) => {
+        const fontMatch = font?.match(/^[\w\s-]+$/);
+        return fontMatch?.[0];
+      })
+      .filter(Boolean)
+      .join(',');
+    if (sanitizedFontStack.length == 0) {
       return res.status(400).send('Invalid font stack format');
     }
-    fontstack = decodeURI(fontStackMatch[0]);
-
+    fontstack = decodeURI(sanitizedFontStack);
     const range = req.params.range;
 
     try {
