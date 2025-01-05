@@ -223,7 +223,10 @@ async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
     }
 
     if (!/^\d+-\d+$/.test(sRange)) {
-      console.error('ERROR: Invalid range: %s', sRange);
+      console.error(
+        'ERROR: Invalid range: %s',
+        sanitizedRange.replace(/\n|\r/g, ''),
+      );
       throw new Error('Invalid range');
     }
 
@@ -239,7 +242,7 @@ async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
     } catch (err) {
       console.error(
         'ERROR: Font not found: %s, Error: %s',
-        filename,
+        filename.replace(/\n|\r/g, ''),
         String(err),
       );
       if (fallbacks && Object.keys(fallbacks).length) {
@@ -259,7 +262,7 @@ async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
         console.error(
           `ERROR: Trying to use %s as a fallback for: %s`,
           fallbackName,
-          sFontStack,
+          sanitizedName,
         );
         delete fallbacks[fallbackName];
         return getFontPbf(null, fontPath, fallbackName, range, fallbacks);
