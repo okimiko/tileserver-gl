@@ -209,11 +209,17 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
         return reject('Invalid font name');
       }
 
+      const rangeMatch = range?.match(/^[\d-]+$/);
+      const sanitizedRange = rangeMatch?.[0] || 'invalid';
       if (!/^\d+-\d+$/.test(range)) {
-        console.error('ERROR: Invalid range: %s', range);
+        console.error('ERROR: Invalid range: %s', sanitizedRange);
         return reject('Invalid range');
       }
-      const filename = path.join(fontPath, sanitizedName, `${range}.pbf`);
+      const filename = path.join(
+        fontPath,
+        sanitizedName,
+        `${sanitizedRange}.pbf`,
+      );
       if (!fallbacks) {
         fallbacks = clone(allowedFonts || {});
       }
