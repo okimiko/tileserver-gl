@@ -48,11 +48,11 @@ export const serve_data = {
       if (verbose) {
         console.log(
           `Handling tile request for: /data/%s/%s/%s/%s.%s`,
-          String(id).replace(/\n|\r/g, ''),
-          String(z).replace(/\n|\r/g, ''),
-          String(x).replace(/\n|\r/g, ''),
-          String(y).replace(/\n|\r/g, ''),
-          String(format).replace(/\n|\r/g, ''),
+          String(req.params.id).replace(/\n|\r/g, ''),
+          String(req.params.z).replace(/\n|\r/g, ''),
+          String(req.params.x).replace(/\n|\r/g, ''),
+          String(req.params.y).replace(/\n|\r/g, ''),
+          String(req.params.format).replace(/\n|\r/g, ''),
         );
       }
       const item = repo[req.params.id];
