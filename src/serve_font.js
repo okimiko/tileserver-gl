@@ -30,8 +30,12 @@ export async function serve_font(options, allowedFonts, programOpts) {
    * @returns {Promise<void>}
    */
   app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
-    const sFontStack = String(req.params.fontstack).replace(/\n|\r/g, '');
     const sRange = String(req.params.range).replace(/\n|\r/g, '');
+    const sFontStack = String(decodeURI(req.params.fontstack)).replace(
+      /\n|\r/g,
+      '',
+    );
+
     if (verbose) {
       console.log(
         `Handling font request for: /fonts/%s/%s.pbf`,
@@ -50,14 +54,12 @@ export async function serve_font(options, allowedFonts, programOpts) {
       }
     }
 
-    const fontstack = decodeURI(req.params.fontstack);
-    const range = req.params.range;
     try {
       const concatenated = await getFontsPbf(
         options.serveAllFonts ? null : allowedFonts,
         fontPath,
-        fontstack,
-        range,
+        sFontStack,
+        sRange,
         existingFonts,
       );
       res.header('Content-type', 'application/x-protobuf');
