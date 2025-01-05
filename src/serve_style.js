@@ -91,103 +91,36 @@ export const serve_style = {
     });
 
     /**
-     * Handles GET requests for sprite images and JSON files.
-     * @param {express.Request} req - Express request object.
-     * @param {express.Response} res - Express response object.
-     * @param {express.NextFunction} next - Express next function.
-     * @param {string} req.params.id - ID of the sprite.
-     * @param {string} [req.params.spriteID='default'] - ID of the specific sprite image, defaults to 'default'.
-     * @param {string} [req.params.scale] - Scale of the sprite image, defaults to ''.
-     * @param {string} req.params.format - Format of the sprite file, 'png' or 'json'.
+     * Handles requests for a font file.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.fontstack - Name of the font stack.
+     * @param {string} req.params.range - The range of the font (e.g. 0-255).
      * @returns {Promise<void>}
      */
-    app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
-      const { spriteID = 'default', id, format, scale } = req.params;
-      const sanitizedId = String(id).replace(/\n|\r/g, '');
-      const sanitizedScale = scale ? String(scale).replace(/\n|\r/g, '') : '';
-      const sanitizedSpriteID = String(spriteID).replace(/\n|\r/g, '');
-      const sanitizedFormat = format
-        ? '.' + String(format).replace(/\n|\r/g, '')
-        : '';
+    app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
       if (verbose) {
-        console.log(
-          `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
-          sanitizedId,
-          sanitizedSpriteID,
-          sanitizedScale,
-          sanitizedFormat,
+        console.log(req.params);
+      }
+      const fontstack = decodeURI(req.params.fontstack);
+      const range = req.params.range;
+
+      try {
+        const concatenated = await getFontsPbf(
+          options.serveAllFonts ? null : allowedFonts,
+          fontPath,
+          fontstack,
+          range,
+          existingFonts,
         );
-      }
-      const item = repo[id];
-      const validatedFormat = allowedSpriteFormats(format);
-      if (!item || !validatedFormat) {
-        if (verbose)
-          console.error(
-            `Sprite item or format not found for: /styles/%s/sprite/%s%s%s`,
-            sanitizedId,
-            sanitizedSpriteID,
-            sanitizedScale,
-            sanitizedFormat,
-          );
-        return res.sendStatus(404);
-      }
-      const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
-      const spriteScale = allowedSpriteScales(scale);
-      if (!sprite || spriteScale === null) {
-        if (verbose)
-          console.error(
-            `Bad Sprite ID or Scale for: /styles/%s/sprite/%s%s%s`,
-            sanitizedId,
-            sanitizedSpriteID,
-            sanitizedScale,
-            sanitizedFormat,
-          );
-        return res.status(400).send('Bad Sprite ID or Scale');
-      }
 
-      const modifiedSince = req.get('if-modified-since');
-      const cc = req.get('cache-control');
-      if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
-        if (
-          new Date(item.lastModified).getTime() ===
-          new Date(modifiedSince).getTime()
-        ) {
-          return res.sendStatus(304);
-        }
+        res.header('Content-type', 'application/x-protobuf');
+        res.header('Last-Modified', lastModified);
+        return res.send(concatenated);
+      } catch (err) {
+        console.error('Error serving font:', err);
+        return res.status(400).header('Content-Type', 'text/plain').send(err);
       }
-
-      const sanitizedSpritePath = sprite.path.replace(/^(\.\.\/)+/, '');
-      const filename = `${sanitizedSpritePath}${spriteScale}.${validatedFormat}`;
-      if (verbose) console.log(`Loading sprite from: %s`, filename);
-
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      fs.readFile(filename, (err, data) => {
-        if (err) {
-          if (verbose)
-            console.error(
-              'Sprite load error: %s, Error: %s',
-              filename,
-              String(err),
-            );
-          return res.sendStatus(404);
-        }
-
-        if (validatedFormat === 'json') {
-          res.header('Content-type', 'application/json');
-        } else if (validatedFormat === 'png') {
-          res.header('Content-type', 'image/png');
-        }
-        if (verbose)
-          console.log(
-            `Responding with sprite data for /styles/%s/sprite/%s%s%s`,
-            sanitizedId,
-            sanitizedSpriteID,
-            sanitizedScale,
-            sanitizedFormat,
-          );
-        res.set({ 'Last-Modified': item.lastModified });
-        return res.send(data);
-      });
     });
 
     return app;
