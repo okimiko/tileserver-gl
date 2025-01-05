@@ -47,7 +47,12 @@ export const serve_data = {
     app.get('/:id/:z/:x/:y.:format', async (req, res) => {
       if (verbose) {
         console.log(
-          `Handling tile request for: /data/${req.params.id}/${req.params.z}/${req.params.x}/${req.params.y}.${req.params.format}`,
+          `Handling tile request for: /data/%s/%s/%s/%s.%s`,
+          String(id).replace(/\n|\r/g, ''),
+          String(z).replace(/\n|\r/g, ''),
+          String(x).replace(/\n|\r/g, ''),
+          String(y).replace(/\n|\r/g, ''),
+          String(format).replace(/\n|\r/g, ''),
         );
       }
       const item = repo[req.params.id];

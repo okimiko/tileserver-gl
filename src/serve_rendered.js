@@ -962,13 +962,13 @@ export const serve_rendered = {
             console.log(
               `Handling rendered %s request for: /styles/%s%s/%s/%s/%s%s.%s`,
               requestType,
-              id,
-              p1 ? '/' + p1 : '',
-              p2,
-              p3,
-              p4,
-              scale ? '@' + scale : '',
-              format,
+              String(id).replace(/\n|\r/g, ''),
+              p1 ? '/' + String(p1).replace(/\n|\r/g, '') : '',
+              String(p2).replace(/\n|\r/g, ''),
+              String(p3).replace(/\n|\r/g, ''),
+              String(p4).replace(/\n|\r/g, ''),
+              scale ? '@' + String(scale).replace(/\n|\r/g, '') : '',
+              String(format).replace(/\n|\r/g, ''),
             );
           }
 
@@ -1019,7 +1019,11 @@ export const serve_rendered = {
       const tileSize = parseInt(req.params.tileSize, 10) || undefined;
       if (verbose) {
         console.log(
-          `Handling rendered tilejson request for: /styles/${tileSize ? tileSize + '/' : ''}${req.params.id}.json`,
+          `Handling rendered tilejson request for: /styles/%s%s.json`,
+          req.params.tileSize
+            ? String(req.params.tileSize).replace(/\n|\r/g, '') + '/'
+            : '',
+          String(req.params.id).replace(/\n|\r/g, ''),
         );
       }
       const info = clone(item.tileJSON);
