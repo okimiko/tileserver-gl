@@ -102,16 +102,16 @@ export const serve_style = {
      * @returns {Promise<void>}
      */
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
-      const { spriteID = 'default', id, format } = req.params;
-      const spriteScale = allowedSpriteScales(req.params.scale);
-
       if (verbose) {
+        const { spriteID = 'default', id, format } = req.params;
+        const spriteScale = allowedSpriteScales(req.params.scale);
+
         console.log(
           `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
           String(id).replace(/\n|\r/g, ''),
           String(spriteID).replace(/\n|\r/g, ''),
           String(spriteScale).replace(/\n|\r/g, ''),
-          String(format).replace(/\n|\r/g, ''),
+          String(format).replace(/\n|\r/g, ''),,
         );
       }
 
