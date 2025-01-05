@@ -235,7 +235,7 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
         if (err) {
           console.error(
             'ERROR: Font not found: %s, Error: %s',
-            filename,
+            filename.replace(/\n|\r/g, ''),
             String(err),
           );
           if (fallbacks && Object.keys(fallbacks).length) {
