@@ -30,13 +30,26 @@ export async function serve_font(options, allowedFonts, programOpts) {
    * @returns {Promise<void>}
    */
   app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
+    const sFontStack = String(req.params.fontstack).replace(/\n|\r/g, '');
+    const sRange = String(req.params.range).replace(/\n|\r/g, '');
     if (verbose) {
       console.log(
         `Handling font request for: /fonts/%s/%s.pbf`,
-        String(req.params.fontstack).replace(/\n|\r/g, ''),
-        String(req.params.range).replace(/\n|\r/g, ''),
+        sFontStack,
+        sRange,
       );
     }
+
+    const modifiedSince = req.get('if-modified-since');
+    const cc = req.get('cache-control');
+    if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
+      if (
+        new Date(lastModified).getTime() === new Date(modifiedSince).getTime()
+      ) {
+        return res.sendStatus(304);
+      }
+    }
+
     const fontstack = decodeURI(req.params.fontstack);
     const range = req.params.range;
     try {
@@ -51,8 +64,16 @@ export async function serve_font(options, allowedFonts, programOpts) {
       res.header('Last-Modified', lastModified);
       return res.send(concatenated);
     } catch (err) {
-      console.error('Error serving font:', err);
-      return res.status(400).header('Content-Type', 'text/plain').send(err);
+      console.error(
+        `Error serving font: %s/%s.pbf, Error: %s`,
+        sFontStack,
+        sRange,
+        String(err),
+      );
+      return res
+        .status(400)
+        .header('Content-Type', 'text/plain')
+        .send('Error serving font');
     }
   });
 
