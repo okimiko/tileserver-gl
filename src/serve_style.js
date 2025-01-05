@@ -7,7 +7,7 @@ import clone from 'clone';
 import express from 'express';
 import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 
-import { fixUrl, allowedOptions } from './utils.js';
+import { fixUrl, allowedOptions, readFile } from './utils.js';
 
 const httpTester = /^https?:\/\//i;
 const allowedSpriteFormats = allowedOptions(['png', 'json']);
@@ -101,94 +101,98 @@ export const serve_style = {
      * @param {string} req.params.format - Format of the sprite file, 'png' or 'json'.
      * @returns {Promise<void>}
      */
-    app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
-      const { spriteID = 'default', id, format, scale } = req.params;
-      const sanitizedId = String(id).replace(/\n|\r/g, '');
-      const sanitizedScale = scale ? String(scale).replace(/\n|\r/g, '') : '';
-      const sanitizedSpriteID = String(spriteID).replace(/\n|\r/g, '');
-      const sanitizedFormat = format
-        ? '.' + String(format).replace(/\n|\r/g, '')
-        : '';
-      if (verbose) {
-        console.log(
-          `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
-          sanitizedId,
-          sanitizedSpriteID,
-          sanitizedScale,
-          sanitizedFormat,
-        );
-      }
-      const item = repo[id];
-      const validatedFormat = allowedSpriteFormats(format);
-      if (!item || !validatedFormat) {
-        if (verbose)
-          console.error(
-            `Sprite item or format not found for: /styles/%s/sprite/%s%s%s`,
+    app.get(
+      `/:id/sprite{/:spriteID}{@:scale}{.:format}`,
+      async (req, res, next) => {
+        const { spriteID = 'default', id, format, scale } = req.params;
+        const sanitizedId = String(id).replace(/\n|\r/g, '');
+        const sanitizedScale = scale ? String(scale).replace(/\n|\r/g, '') : '';
+        const sanitizedSpriteID = String(spriteID).replace(/\n|\r/g, '');
+        const sanitizedFormat = format
+          ? '.' + String(format).replace(/\n|\r/g, '')
+          : '';
+        if (verbose) {
+          console.log(
+            `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
             sanitizedId,
             sanitizedSpriteID,
             sanitizedScale,
             sanitizedFormat,
           );
-        return res.sendStatus(404);
-      }
-      const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
-      const spriteScale = allowedSpriteScales(scale);
-      if (!sprite || spriteScale === null) {
-        if (verbose)
-          console.error(
-            `Bad Sprite ID or Scale for: /styles/%s/sprite/%s%s%s`,
-            sanitizedId,
-            sanitizedSpriteID,
-            sanitizedScale,
-            sanitizedFormat,
-          );
-        return res.status(400).send('Bad Sprite ID or Scale');
-      }
-
-      const modifiedSince = req.get('if-modified-since');
-      const cc = req.get('cache-control');
-      if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
-        if (
-          new Date(item.lastModified).getTime() ===
-          new Date(modifiedSince).getTime()
-        ) {
-          return res.sendStatus(304);
         }
-      }
-
-      const sanitizedSpritePath = sprite.path.replace(/^(\.\.\/)+/, '');
-      const filename = `${sanitizedSpritePath}${spriteScale}.${validatedFormat}`;
-      if (verbose) console.log(`Loading sprite from: %s`, filename);
-
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      fs.readFile(filename, (err, data) => {
-        if (err) {
+        const item = repo[id];
+        const validatedFormat = allowedSpriteFormats(format);
+        if (!item || !validatedFormat) {
           if (verbose)
+            console.error(
+              `Sprite item or format not found for: /styles/%s/sprite/%s%s%s`,
+              sanitizedId,
+              sanitizedSpriteID,
+              sanitizedScale,
+              sanitizedFormat,
+            );
+          return res.sendStatus(404);
+        }
+        const sprite = item.spritePaths.find(
+          (sprite) => sprite.id === spriteID,
+        );
+        const spriteScale = allowedSpriteScales(scale);
+        if (!sprite || spriteScale === null) {
+          if (verbose)
+            console.error(
+              `Bad Sprite ID or Scale for: /styles/%s/sprite/%s%s%s`,
+              sanitizedId,
+              sanitizedSpriteID,
+              sanitizedScale,
+              sanitizedFormat,
+            );
+          return res.status(400).send('Bad Sprite ID or Scale');
+        }
+
+        const modifiedSince = req.get('if-modified-since');
+        const cc = req.get('cache-control');
+        if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
+          if (
+            new Date(item.lastModified).getTime() ===
+            new Date(modifiedSince).getTime()
+          ) {
+            return res.sendStatus(304);
+          }
+        }
+
+        const sanitizedSpritePath = sprite.path.replace(/^(\.\.\/)+/, '');
+        const filename = `${sanitizedSpritePath}${spriteScale}.${validatedFormat}`;
+        if (verbose) console.log(`Loading sprite from: %s`, filename);
+        try {
+          const data = await readFile(filename);
+
+          if (validatedFormat === 'json') {
+            res.header('Content-type', 'application/json');
+          } else if (validatedFormat === 'png') {
+            res.header('Content-type', 'image/png');
+          }
+          if (verbose)
+            console.log(
+              `Responding with sprite data for /styles/%s/sprite/%s%s%s`,
+              sanitizedId,
+              sanitizedSpriteID,
+              sanitizedScale,
+              sanitizedFormat,
+            );
+          res.set({ 'Last-Modified': item.lastModified });
+          return res.send(data);
+        } catch (err) {
+          if (verbose) {
             console.error(
               'Sprite load error: %s, Error: %s',
               filename,
               String(err),
             );
+          }
           return res.sendStatus(404);
         }
-
-        if (validatedFormat === 'json') {
-          res.header('Content-type', 'application/json');
-        } else if (validatedFormat === 'png') {
-          res.header('Content-type', 'image/png');
-        }
-        if (verbose)
-          console.log(
-            `Responding with sprite data for /styles/%s/sprite/%s%s%s`,
-            sanitizedId,
-            sanitizedSpriteID,
-            sanitizedScale,
-            sanitizedFormat,
-          );
-        res.set({ 'Last-Modified': item.lastModified });
-        return res.send(data);
-      });
-    });
+      },
+    );
 
     return app;
   },

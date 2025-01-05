@@ -186,6 +186,24 @@ export function fixTileJSONCenter(tileJSON) {
 }
 
 /**
+ * Reads a file and returns a Promise with the file data.
+ * @param {string} filename - Path to the file to read.
+ * @returns {Promise<Buffer>} - A Promise that resolves with the file data as a Buffer or rejects with an error.
+ */
+export function readFile(filename) {
+  return new Promise((resolve, reject) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.readFile(filename, (err, data) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    });
+  });
+}
+
+/**
  * Retrieves font data for a given font and range.
  * @param {object} allowedFonts - An object of allowed fonts.
  * @param {string} fontPath - The path to the font directory.
@@ -194,85 +212,75 @@ export function fixTileJSONCenter(tileJSON) {
  * @param {object} [fallbacks] - Optional fallback font list.
  * @returns {Promise<Buffer>} A promise that resolves with the font data Buffer or rejects with an error.
  */
-function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
-  return new Promise((resolve, reject) => {
-    if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
-      const fontMatch = name?.match(/^[\w\s-]+$/);
-      const sanitizedName = fontMatch?.[0] || 'invalid';
-      if (
-        !name ||
-        typeof name !== 'string' ||
-        name.trim() === '' ||
-        !fontMatch
-      ) {
-        console.error(
-          'ERROR: Invalid font name: %s',
-          sanitizedName.replace(/\n|\r/g, ''),
-        );
-        return reject('Invalid font name');
-      }
-
-      const rangeMatch = range?.match(/^[\d-]+$/);
-      const sanitizedRange = rangeMatch?.[0] || 'invalid';
-      if (!/^\d+-\d+$/.test(range)) {
-        console.error(
-          'ERROR: Invalid range: %s',
-          sanitizedRange.replace(/\n|\r/g, ''),
-        );
-        return reject('Invalid range');
-      }
-      const filename = path.join(
-        fontPath,
-        sanitizedName,
-        `${sanitizedRange}.pbf`,
+async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
+  if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
+    const fontMatch = name?.match(/^[\w\s-]+$/);
+    const sanitizedName = fontMatch?.[0] || 'invalid';
+    if (!name || typeof name !== 'string' || name.trim() === '' || !fontMatch) {
+      console.error(
+        'ERROR: Invalid font name: %s',
+        sanitizedName.replace(/\n|\r/g, ''),
       );
-      if (!fallbacks) {
-        fallbacks = clone(allowedFonts || {});
-      }
-      delete fallbacks[name];
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      fs.readFile(filename, (err, data) => {
-        if (err) {
-          console.error(
-            'ERROR: Font not found: %s, Error: %s',
-            filename.replace(/\n|\r/g, ''),
-            String(err),
-          );
-          if (fallbacks && Object.keys(fallbacks).length) {
-            let fallbackName;
-
-            let fontStyle = name.split(' ').pop();
-            if (['Regular', 'Bold', 'Italic'].indexOf(fontStyle) < 0) {
-              fontStyle = 'Regular';
-            }
-            fallbackName = `Noto Sans ${fontStyle}`;
-            if (!fallbacks[fallbackName]) {
-              fallbackName = `Open Sans ${fontStyle}`;
-              if (!fallbacks[fallbackName]) {
-                fallbackName = Object.keys(fallbacks)[0];
-              }
-            }
-            console.error(
-              `ERROR: Trying to use %s as a fallback for: %s`,
-              fallbackName,
-              sanitizedName,
-            );
-            delete fallbacks[fallbackName];
-            getFontPbf(null, fontPath, fallbackName, range, fallbacks).then(
-              resolve,
-              reject,
-            );
-          } else {
-            reject('Font load error');
-          }
-        } else {
-          resolve(data);
-        }
-      });
-    } else {
-      reject('Font not allowed');
+      throw new Error('Invalid font name');
     }
-  });
+
+    const rangeMatch = range?.match(/^[\d-]+$/);
+    const sanitizedRange = rangeMatch?.[0] || 'invalid';
+    if (!/^\d+-\d+$/.test(range)) {
+      console.error(
+        'ERROR: Invalid range: %s',
+        sanitizedRange.replace(/\n|\r/g, ''),
+      );
+      throw new Error('Invalid range');
+    }
+    const filename = path.join(
+      fontPath,
+      sanitizedName,
+      `${sanitizedRange}.pbf`,
+    );
+
+    if (!fallbacks) {
+      fallbacks = clone(allowedFonts || {});
+    }
+    delete fallbacks[name];
+
+    try {
+      const data = await readFile(filename);
+      return data;
+    } catch (err) {
+      console.error(
+        'ERROR: Font not found: %s, Error: %s',
+        filename.replace(/\n|\r/g, ''),
+        String(err),
+      );
+      if (fallbacks && Object.keys(fallbacks).length) {
+        let fallbackName;
+
+        let fontStyle = name.split(' ').pop();
+        if (['Regular', 'Bold', 'Italic'].indexOf(fontStyle) < 0) {
+          fontStyle = 'Regular';
+        }
+        fallbackName = `Noto Sans ${fontStyle}`;
+        if (!fallbacks[fallbackName]) {
+          fallbackName = `Open Sans ${fontStyle}`;
+          if (!fallbacks[fallbackName]) {
+            fallbackName = Object.keys(fallbacks)[0];
+          }
+        }
+        console.error(
+          `ERROR: Trying to use %s as a fallback for: %s`,
+          fallbackName,
+          sanitizedName,
+        );
+        delete fallbacks[fallbackName];
+        return getFontPbf(null, fontPath, fallbackName, range, fallbacks);
+      } else {
+        throw new Error('Font load error');
+      }
+    }
+  } else {
+    throw new Error('Font not allowed');
+  }
 }
 /**
  * Combines multiple font pbf buffers into one.
