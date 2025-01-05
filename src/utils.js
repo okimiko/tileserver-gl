@@ -205,14 +205,20 @@ function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
         name.trim() === '' ||
         !fontMatch
       ) {
-        console.error('ERROR: Invalid font name: %s', sanitizedName);
+        console.error(
+          'ERROR: Invalid font name: %s',
+          sanitizedName.replace(/\n|\r/g, ''),
+        );
         return reject('Invalid font name');
       }
 
       const rangeMatch = range?.match(/^[\d-]+$/);
       const sanitizedRange = rangeMatch?.[0] || 'invalid';
       if (!/^\d+-\d+$/.test(range)) {
-        console.error('ERROR: Invalid range: %s', sanitizedRange);
+        console.error(
+          'ERROR: Invalid range: %s',
+          sanitizedRange.replace(/\n|\r/g, ''),
+        );
         return reject('Invalid range');
       }
       const filename = path.join(
