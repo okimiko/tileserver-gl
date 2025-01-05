@@ -165,7 +165,11 @@ export const serve_data = {
       try {
         if (verbose) {
           console.log(
-            `Handling elevation request for: /data/${req.params.id}/elevation/${req.params.z}/${req.params.x}/${req.params.y}`,
+            `Handling elevation request for: /data/%s/elevation/%s/%s/%s`,
+            String(req.params.id).replace(/\n|\r/g, ''),
+            String(req.params.z).replace(/\n|\r/g, ''),
+            String(req.params.x).replace(/\n|\r/g, ''),
+            String(req.params.y).replace(/\n|\r/g, ''),
           );
         }
         const item = repo?.[req.params.id];
@@ -313,7 +317,8 @@ export const serve_data = {
     app.get('/:id.json', (req, res) => {
       if (verbose) {
         console.log(
-          `Handling tilejson request for: /data/${req.params.id}.json`,
+          `Handling tilejson request for: /data/%s.json`,
+          String(req.params.id).replace(/\n|\r/g, ''),
         );
       }
       const item = repo[req.params.id];
