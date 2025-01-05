@@ -30,41 +30,15 @@ export async function serve_font(options, allowedFonts, programOpts) {
    * @returns {Promise<void>}
    */
   app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
-    let fontstack = req.params.fontstack;
-    const fontStackParts = fontstack.split(',');
-    const sanitizedFontStack = fontStackParts
-      .map((font) => {
-        const fontMatch = font?.match(/^[\w\s-]+$/);
-        return fontMatch?.[0] || 'invalid';
-      })
-      .filter(Boolean)
-      .join(',');
-    if (sanitizedFontStack.length == 0) {
-      return res.status(400).send('Invalid font stack format');
-    }
-
-    fontstack = decodeURI(sanitizedFontStack);
-    let range = req.params.range;
-    const rangeMatch = range?.match(/^[\d-]+$/);
-    const sanitizedRange = rangeMatch?.[0] || 'invalid';
     if (verbose) {
       console.log(
         `Handling font request for: /fonts/%s/%s.pbf`,
-        sanitizedFontStack.replace(/\n|\r/g, ''),
-        sanitizedRange.replace(/\n|\r/g, ''),
+        String(req.params.fontstack).replace(/\n|\r/g, ''),
+        String(req.params.range).replace(/\n|\r/g, ''),
       );
     }
-
-    const modifiedSince = req.get('if-modified-since');
-    const cc = req.get('cache-control');
-    if (modifiedSince && (!cc || cc.indexOf('no-cache') === -1)) {
-      if (
-        new Date(lastModified).getTime() === new Date(modifiedSince).getTime()
-      ) {
-        return res.sendStatus(304);
-      }
-    }
-
+    const fontstack = decodeURI(req.params.fontstack);
+    const range = req.params.range;
     try {
       const concatenated = await getFontsPbf(
         options.serveAllFonts ? null : allowedFonts,
@@ -73,21 +47,12 @@ export async function serve_font(options, allowedFonts, programOpts) {
         range,
         existingFonts,
       );
-
       res.header('Content-type', 'application/x-protobuf');
       res.header('Last-Modified', lastModified);
       return res.send(concatenated);
     } catch (err) {
-      console.error(
-        `Error serving font: %s/%s.pbf, Error: %s`,
-        sanitizedFontStack.replace(/\n|\r/g, ''),
-        sanitizedRange.replace(/\n|\r/g, ''),
-        String(err),
-      );
-      return res
-        .status(400)
-        .header('Content-Type', 'text/plain')
-        .send('Error serving font');
+      console.error('Error serving font:', err);
+      return res.status(400).header('Content-Type', 'text/plain').send(err);
     }
   });
 
