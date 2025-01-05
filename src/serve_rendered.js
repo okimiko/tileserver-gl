@@ -13,7 +13,6 @@ import '@maplibre/maplibre-gl-native';
 // SECTION END
 
 import advancedPool from 'advanced-pool';
-import fs from 'node:fs';
 import path from 'path';
 import url from 'url';
 import util from 'util';
@@ -35,6 +34,7 @@ import {
   fixTileJSONCenter,
   fetchTileData,
   allowedOptions,
+  readFile,
 } from './utils.js';
 import { openPMtiles, getPMtilesInfo } from './pmtiles_adapter.js';
 import { renderOverlay, renderWatermark, renderAttribution } from './render.js';
@@ -1092,9 +1092,13 @@ export const serve_rendered = {
               const file = decodeURIComponent(req.url).substring(
                 protocol.length + 3,
               );
-              fs.readFile(path.join(dir, file), (err, data) => {
-                callback(err, { data: data });
-              });
+              readFile(path.join(dir, file))
+                .then((data) => {
+                  callback(null, { data: data });
+                })
+                .catch((err) => {
+                  callback(err, null);
+                });
             } else if (protocol === 'fonts') {
               const parts = req.url.split('/');
               const fontstack = decodeURIComponent(parts[2]);
@@ -1217,9 +1221,13 @@ export const serve_rendered = {
                   );
                 }
 
-                fs.readFile(file, (err, data) => {
-                  callback(err, { data: data });
-                });
+                readFile(file)
+                  .then((data) => {
+                    callback(null, { data: data });
+                  })
+                  .catch((err) => {
+                    callback(err, null);
+                  });
               } else {
                 throw Error(
                   `File does not exist: "${req.url}" - resolved to "${file}"`,

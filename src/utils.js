@@ -192,8 +192,9 @@ export function fixTileJSONCenter(tileJSON) {
  */
 export function readFile(filename) {
   return new Promise((resolve, reject) => {
+    const sanitizedFilename = path.normalize(filename); // Normalize path, remove ..
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    fs.readFile(filename, (err, data) => {
+    fs.readFile(String(sanitizedFilename), (err, data) => {
       if (err) {
         reject(err);
       } else {
