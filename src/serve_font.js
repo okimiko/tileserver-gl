@@ -50,8 +50,8 @@ export async function serve_font(options, allowedFonts, programOpts) {
     if (verbose) {
       console.log(
         `Handling font request for: /fonts/%s/%s.pbf`,
-        sanitizedFontStack,
-        sanitizedRange,
+        sanitizedFontStack.replace(/\n|\r/g, ''),
+        sanitizedRange.replace(/\n|\r/g, ''),
       );
     }
 
@@ -80,8 +80,8 @@ export async function serve_font(options, allowedFonts, programOpts) {
     } catch (err) {
       console.error(
         `Error serving font: %s/%s.pbf, Error: %s`,
-        fontstack,
-        sanitizedRange,
+        sanitizedFontStack.replace(/\n|\r/g, ''),
+        sanitizedRange.replace(/\n|\r/g, ''),
         String(err),
       );
       return res

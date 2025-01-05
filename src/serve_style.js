@@ -56,7 +56,7 @@ export const serve_style = {
       if (verbose) {
         console.log(
           'Handling style request for: /styles/%s/style.json',
-          String(id),
+          String(id).replace(/\n|\r/g, ''),
         );
       }
       try {
@@ -103,10 +103,12 @@ export const serve_style = {
      */
     app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
       const { spriteID = 'default', id, format, scale } = req.params;
-      const sanitizedId = String(id);
-      const sanitizedScale = scale ? String(scale) : '';
-      const sanitizedSpriteID = String(spriteID);
-      const sanitizedFormat = format ? '.' + String(format) : '';
+      const sanitizedId = String(id).replace(/\n|\r/g, '');
+      const sanitizedScale = scale ? String(scale).replace(/\n|\r/g, '') : '';
+      const sanitizedSpriteID = String(spriteID).replace(/\n|\r/g, '');
+      const sanitizedFormat = format
+        ? '.' + String(format).replace(/\n|\r/g, '')
+        : '';
       if (verbose) {
         console.log(
           `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
