@@ -91,56 +91,36 @@ export const serve_style = {
     });
 
     /**
-     * Handles GET requests for sprite images and JSON files.
-     * @param {express.Request} req - Express request object.
-     * @param {express.Response} res - Express response object.
-     * @param {express.NextFunction} next - Express next function.
-     * @param {string} req.params.id - ID of the sprite.
-     * @param {string} [req.params.spriteID='default'] - ID of the specific sprite image, defaults to 'default'.
-     * @param {string} [req.params.scale] - Scale of the sprite image, defaults to ''.
-     * @param {string} req.params.format - Format of the sprite file, 'png' or 'json'.
+     * Handles requests for a font file.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.fontstack - Name of the font stack.
+     * @param {string} req.params.range - The range of the font (e.g. 0-255).
      * @returns {Promise<void>}
      */
-    app.get(`/:id/sprite{/:spriteID}{@:scale}{.:format}`, (req, res, next) => {
+    app.get('/fonts/:fontstack/:range.pbf', async (req, res) => {
       if (verbose) {
-        const { spriteID = 'default', id, format } = req.params;
-        const spriteScale = allowedSpriteScales(req.params.scale);
+        console.log(req.params);
+      }
+      const fontstack = decodeURI(req.params.fontstack);
+      const range = req.params.range;
 
-        console.log(
-          `Handling sprite request for: /styles/%s/sprite/%s%s%s`,
-          String(id).replace(/\n|\r/g, ''),
-          String(spriteID).replace(/\n|\r/g, ''),
-          String(spriteScale).replace(/\n|\r/g, ''),
-          String(format).replace(/\n|\r/g, ''),,
+      try {
+        const concatenated = await getFontsPbf(
+          options.serveAllFonts ? null : allowedFonts,
+          fontPath,
+          fontstack,
+          range,
+          existingFonts,
         );
+
+        res.header('Content-type', 'application/x-protobuf');
+        res.header('Last-Modified', lastModified);
+        return res.send(concatenated);
+      } catch (err) {
+        console.error('Error serving font:', err);
+        return res.status(400).header('Content-Type', 'text/plain').send(err);
       }
-
-      const item = repo[id];
-      if (!item || !allowedSpriteFormats(format)) {
-        return res.sendStatus(404);
-      }
-
-      const sprite = item.spritePaths.find((sprite) => sprite.id === spriteID);
-      if (!sprite) {
-        return res.status(400).send('Bad Sprite ID or Scale');
-      }
-
-      const filename = `${sprite.path}${spriteScale}.${format}`;
-
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      fs.readFile(filename, (err, data) => {
-        if (err) {
-          console.error('Sprite load error: %s, Error: %s', filename, err);
-          return res.sendStatus(404);
-        }
-
-        if (format === 'json') {
-          res.header('Content-type', 'application/json');
-        } else if (format === 'png') {
-          res.header('Content-type', 'image/png');
-        }
-        return res.send(data);
-      });
     });
 
     return app;
