@@ -8,6 +8,10 @@ import { combine } from '@jsse/pbfont';
 import { existsP } from './promises.js';
 import { getPMtilesTile } from './pmtiles_adapter.js';
 
+export const allowedSpriteFormats = allowedOptions(['png', 'json']);
+
+export const allowedTileSizes = allowedOptions(['256', '512']);
+
 /**
  * Restrict user input to an allowed set of options.
  * @param {string[]} opts - An array of allowed option strings.
@@ -18,6 +22,47 @@ import { getPMtilesTile } from './pmtiles_adapter.js';
 export function allowedOptions(opts, { defaultValue } = {}) {
   const values = Object.fromEntries(opts.map((key) => [key, key]));
   return (value) => values[value] || defaultValue;
+}
+
+/**
+ * Parses a scale string to a number.
+ * @param {string} scale The scale string (e.g., '2x', '4x').
+ * @param {number} maxScale Maximum allowed scale digit.
+ * @returns {number|null} The parsed scale as a number or null if invalid.
+ */
+export function allowedScales(scale, maxScale = 9) {
+  if (scale === undefined) {
+    return 1;
+  }
+
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  const regex = new RegExp(`^[2-${maxScale}]x$`);
+  if (!regex.test(scale)) {
+    return null;
+  }
+
+  return parseInt(scale.slice(0, -1), 10);
+}
+
+/**
+ * Checks if a string is a valid sprite scale and returns it if it is within the allowed range, and null if it does not conform.
+ * @param {string} scale - The scale string to validate (e.g., '2x', '3x').
+ * @param {number} [maxScale] - The maximum scale value. If no value is passed in, it defaults to a value of 3.
+ * @returns {string|null} - The valid scale string or null if invalid.
+ */
+export function allowedSpriteScales(scale, maxScale = 3) {
+  if (!scale) {
+    return '';
+  }
+  const match = scale?.match(/^([2-9]\d*)x$/);
+  if (!match) {
+    return null;
+  }
+  const parsedScale = parseInt(match[1], 10);
+  if (parsedScale <= maxScale) {
+    return `@${parsedScale}x`;
+  }
+  return null;
 }
 
 /**

@@ -7,31 +7,15 @@ import clone from 'clone';
 import express from 'express';
 import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 
-import { fixUrl, allowedOptions, readFile } from './utils.js';
+import {
+  allowedSpriteScales,
+  allowedSpriteFormats,
+  fixUrl,
+  readFile,
+} from './utils.js';
 
 const httpTester = /^https?:\/\//i;
-const allowedSpriteFormats = allowedOptions(['png', 'json']);
 
-/**
- * Checks if a string is a valid sprite scale and returns it if it is within the allowed range, and null if it does not conform.
- * @param {string} scale - The scale string to validate (e.g., '2x', '3x').
- * @param {number} [maxScale] - The maximum scale value. If no value is passed in, it defaults to a value of 3.
- * @returns {string|null} - The valid scale string or null if invalid.
- */
-function allowedSpriteScales(scale, maxScale = 3) {
-  if (!scale) {
-    return '';
-  }
-  const match = scale?.match(/^([2-9]\d*)x$/);
-  if (!match) {
-    return null;
-  }
-  const parsedScale = parseInt(match[1], 10);
-  if (parsedScale <= maxScale) {
-    return `@${parsedScale}x`;
-  }
-  return null;
-}
 export const serve_style = {
   /**
    * Initializes the serve_style module.

@@ -17,10 +17,10 @@ import { serve_data } from './serve_data.js';
 import { serve_style } from './serve_style.js';
 import { serve_font } from './serve_font.js';
 import {
+  allowedTileSizes,
   getTileUrls,
   getPublicUrl,
   isValidHttpUrl,
-  allowedOptions,
 } from './utils.js';
 
 import { fileURLToPath } from 'url';
@@ -103,10 +103,6 @@ async function start(opts) {
   paths.files = paths.files
     ? path.resolve(paths.root, paths.files)
     : path.resolve(__dirname, '../public/files');
-
-  const allowedTileSizes = allowedOptions(['256', '512'], {
-    defaultValue: options.tileSize || 256,
-  });
 
   const startupPromises = [];
 

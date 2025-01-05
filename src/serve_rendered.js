@@ -27,13 +27,14 @@ import polyline from '@mapbox/polyline';
 import proj4 from 'proj4';
 import axios from 'axios';
 import {
+  allowedScales,
+  allowedTileSizes,
   getFontsPbf,
   listFonts,
   getTileUrls,
   isValidHttpUrl,
   fixTileJSONCenter,
   fetchTileData,
-  allowedOptions,
   readFile,
 } from './utils.js';
 import { openPMtiles, getPMtilesInfo } from './pmtiles_adapter.js';
@@ -65,26 +66,6 @@ const PATH_PATTERN =
 const httpTester = /^https?:\/\//i;
 
 const mercator = new SphericalMercator();
-
-/**
- * Parses a scale string to a number.
- * @param {string} scale The scale string (e.g., '2x', '4x').
- * @param {number} maxScaleDigit Maximum allowed scale digit.
- * @returns {number|null} The parsed scale as a number or null if invalid.
- */
-function parseScale(scale, maxScaleDigit = 9) {
-  if (scale === undefined) {
-    return 1;
-  }
-
-  // eslint-disable-next-line security/detect-non-literal-regexp
-  const regex = new RegExp(`^[2-${maxScaleDigit}]x$`);
-  if (!regex.test(scale)) {
-    return null;
-  }
-
-  return parseInt(scale.slice(0, -1), 10);
-}
 
 mlgl.on('message', (e) => {
   if (e.severity === 'WARNING' || e.severity === 'ERROR') {
@@ -676,13 +657,10 @@ async function handleTileRequest(
   const z = parseFloat(zParam) | 0;
   const x = parseFloat(xParam) | 0;
   const y = parseFloat(yParam) | 0;
-  const scale = parseScale(scaleParam, maxScaleFactor);
+  const scale = allowedScales(scaleParam, maxScaleFactor);
 
   let parsedTileSize = parseInt(defailtTileSize, 10);
   if (tileSize) {
-    const allowedTileSizes = allowedOptions(['256', '512'], {
-      defaultValue: null,
-    });
     parsedTileSize = parseInt(allowedTileSizes(tileSize), 10);
 
     if (parsedTileSize == null) {
@@ -778,7 +756,7 @@ async function handleStaticRequest(
       .send('Invalid width or height provided in size parameter');
   }
 
-  const scale = parseScale(scaleParam, maxScaleFactor);
+  const scale = allowedScales(scaleParam, maxScaleFactor);
   let isRaw = raw === 'raw';
 
   const staticTypeMatch = staticType.match(staticTypeRegex);
