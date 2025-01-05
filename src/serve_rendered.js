@@ -437,7 +437,7 @@ function calcZForBBox(bbox, w, h, query) {
  * @param {string} mode Rendering mode ('tile' or 'static').
  * @returns {Promise<void>}
  */
-const respondImage = async (
+async function respondImage(
   options,
   item,
   z,
@@ -452,7 +452,7 @@ const respondImage = async (
   res,
   overlay = null,
   mode = 'tile',
-) => {
+) {
   if (
     Math.abs(lon) > 180 ||
     Math.abs(lat) > 85.06 ||
@@ -485,6 +485,7 @@ const respondImage = async (
   } else {
     pool = item.map.renderersStatic[scale];
   }
+
   pool.acquire(async (err, renderer) => {
     // For 512px tiles, use the actual maplibre-native zoom. For 256px tiles, use zoom - 1
     let mlglZ;
@@ -544,8 +545,8 @@ const respondImage = async (
           height: height * scale,
         });
       }
-
       // HACK(Part 2) 256px tiles are a zoom level lower than maplibre-native default tiles. this hack allows tileserver-gl to support zoom 0 256px tiles, which would actually be zoom -1 in maplibre-native. Since zoom -1 isn't supported, a double sized zoom 0 tile is requested and resized here.
+
       if (z === 0 && width === 256) {
         image.resize(width * scale, height * scale);
       }
@@ -619,7 +620,7 @@ const respondImage = async (
       });
     });
   });
-};
+}
 
 /**
  * Handles requests for tile images.
