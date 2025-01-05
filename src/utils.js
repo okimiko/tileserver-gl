@@ -231,7 +231,7 @@ async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
     if (!fallbacks) {
       fallbacks = clone(allowedFonts || {});
     }
-    delete fallbacks[name];
+    delete fallbacks[sFontStack];
 
     try {
       const data = await readFile(filename);
@@ -245,7 +245,7 @@ async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
       if (fallbacks && Object.keys(fallbacks).length) {
         let fallbackName;
 
-        let fontStyle = name.split(' ').pop();
+        let fontStyle = sFontStack.split(' ').pop();
         if (['Regular', 'Bold', 'Italic'].indexOf(fontStyle) < 0) {
           fontStyle = 'Regular';
         }
