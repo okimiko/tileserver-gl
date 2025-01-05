@@ -215,22 +215,31 @@ export function readFile(filename) {
  */
 async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
   if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
-    const sRange = String(range).replace(/\n|\r/g, '');
-    const sFontStack = String(name).replace(/\n|\r/g, '');
-    if (!sFontStack || name.trim() === '') {
-      console.error('ERROR: Invalid font name');
+    const fontMatch = name?.match(/^[\w\s-]+$/);
+    const sanitizedName = fontMatch?.[0] || 'invalid';
+    if (!name || typeof name !== 'string' || name.trim() === '' || !fontMatch) {
+      console.error(
+        'ERROR: Invalid font name: %s',
+        sanitizedName.replace(/\n|\r/g, ''),
+      );
       throw new Error('Invalid font name');
     }
 
-    if (!/^\d+-\d+$/.test(sRange)) {
+    const rangeMatch = range?.match(/^[\d-]+$/);
+    const sanitizedRange = rangeMatch?.[0] || 'invalid';
+    if (!/^\d+-\d+$/.test(range)) {
       console.error(
         'ERROR: Invalid range: %s',
         sanitizedRange.replace(/\n|\r/g, ''),
       );
       throw new Error('Invalid range');
     }
+    const filename = path.join(
+      fontPath,
+      sanitizedName,
+      `${sanitizedRange}.pbf`,
+    );
 
-    const filename = path.join(fontPath, sFontStack, `${sRange}.pbf`);
     if (!fallbacks) {
       fallbacks = clone(allowedFonts || {});
     }
