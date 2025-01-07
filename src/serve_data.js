@@ -230,12 +230,7 @@ export const serve_data = {
             xy = [intX, intY];
             bbox = new SphericalMercator().bbox(intX, intY, zoom);
           } else {
-            if (
-              x < -180 ||
-              y < -90 ||
-              x > 180 ||
-              y > 90
-            ) {
+            if (x < -180 || y < -90 || x > 180 || y > 90) {
               return res.status(404).send('Out of bounds');
             }
 
@@ -290,12 +285,14 @@ export const serve_data = {
               siny = Math.min(Math.max(siny, -0.9999), 0.9999);
 
               const xWorld = TILE_SIZE * (0.5 + long / 360);
-              const yWorld = TILE_SIZE * (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
+              const yWorld =
+                TILE_SIZE *
+                (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
 
               const scale = 1 << zoom;
 
-              const xTile = Math.floor(xWorld * scale / TILE_SIZE);
-              const yTile = Math.floor(yWorld * scale / TILE_SIZE);
+              const xTile = Math.floor((xWorld * scale) / TILE_SIZE);
+              const yTile = Math.floor((yWorld * scale) / TILE_SIZE);
 
               const xPixel = Math.floor(xWorld * scale) - xTile * TILE_SIZE;
               const yPixel = Math.floor(yWorld * scale) - yTile * TILE_SIZE;
@@ -317,9 +314,9 @@ export const serve_data = {
               let elevation;
               if (encoding === 'mapbox') {
                 elevation =
-                  -10000 + ((red * 256 * 256 + green * 256 + blue) * 0.1);
+                  -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
               } else if (encoding === 'terrarium') {
-                elevation = (red * 256 + green + blue / 256) - 32768
+                elevation = red * 256 + green + blue / 256 - 32768;
               } else {
                 elevation = 'invalid encoding';
               }
@@ -334,7 +331,7 @@ export const serve_data = {
                   blue,
                   latitude: lat,
                   longitude: long,
-                  elevation
+                  elevation,
                 }),
               );
             };
