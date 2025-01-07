@@ -244,7 +244,7 @@ export const serve_data = {
 
             bbox = [x, y, x + 0.1, y + 0.1];
             const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
-            xy = [minX, minY, zoom];
+            xy = [minX, minY];
           }
 
           let data;
