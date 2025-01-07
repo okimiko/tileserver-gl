@@ -9,6 +9,7 @@
   <link rel="stylesheet" type="text/css" href="{{public_url}}maplibre-gl-inspect.css{{&key_query}}" />
   <script src="{{public_url}}maplibre-gl.js{{&key_query}}"></script>
   <script src="{{public_url}}maplibre-gl-inspect.js{{&key_query}}"></script>
+  <script src="{{public_url}}elevation-control.js{{&key_query}}"></script>
   <style>
     body {background:#fff;color:#333;font-family:Arial, sans-serif;}
     {{^is_terrain}}
@@ -20,6 +21,7 @@
     h1 {position:absolute;top:5px;right:0;width:240px;margin:0;line-height:20px;font-size:20px;}
     #layerList {position:absolute;top:35px;right:0;bottom:0;width:240px;overflow:auto;}
     #layerList div div {width:15px;height:15px;display:inline-block;}
+    .maplibre-ctrl-elevation { padding-left: 5px; padding-right: 5px; }
   </style>
   {{/use_maplibre}}
   {{^use_maplibre}}
@@ -69,6 +71,9 @@
     };
     {{/is_terrain}}
     {{#is_terrain}}
+
+    let baseUrl = window.location.origin;
+
     var style = {
       version: 8,
       sources: {
@@ -86,11 +91,11 @@
       "terrain": {
         "source": "terrain"
       },
-      layers: [
+      "layers": [
         {
           "id": "background",
           "paint": {
-            {{^if is_terrainrgb}}
+            {{#if is_terrainrgb}}
             "background-color": "hsl(190, 99%, 63%)"
             {{else}}
             "background-color": "hsl(0, 100%, 25%)"
@@ -118,24 +123,34 @@
       maxPitch: 85,
       style: style
     });
+
     map.addControl(new maplibregl.NavigationControl({
       visualizePitch: true,
       showZoom: true,
       showCompass: true
     }));
     {{#is_terrain}}
+
     map.addControl(
       new maplibregl.TerrainControl({
         source: "terrain",
       })
     );
+
+    map.addControl(
+      new ElevationInfoControl({
+        url: baseUrl + "/data/{{id}}/elevation/{z}/{x}/{y}"
+      })
+    );
     {{/is_terrain}}
     {{^is_terrain}}
+
     var inspect = new MaplibreInspect({
       showInspectMap: true,
       showInspectButton: false
     });
     map.addControl(inspect);
+
     map.on('styledata', function() {
       var layerList = document.getElementById('layerList');
       layerList.innerHTML = '';
