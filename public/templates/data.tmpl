@@ -72,8 +72,6 @@
     {{/is_terrain}}
     {{#is_terrain}}
 
-    let baseUrl = window.location.origin;
-
     var style = {
       version: 8,
       sources: {
@@ -139,7 +137,7 @@
 
     map.addControl(
       new ElevationInfoControl({
-        url: baseUrl + "/data/{{id}}/elevation/{z}/{x}/{y}"
+        url: "{{public_url}}data/{{id}}/elevation/{z}/{x}/{y}"
       })
     );
     {{/is_terrain}}
