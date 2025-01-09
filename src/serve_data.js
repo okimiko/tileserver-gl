@@ -245,7 +245,7 @@ export const serve_data = {
           xy = [minX, minY];
         }
 
-        const fetchTile = await fetchTileData(source, sourceType, z, x, y);
+        const fetchTile = await fetchTileData(source, sourceType, zoom, xy[0], xy[1]);
         if (fetchTile == null) return res.status(204).send();
 
         let data = fetchTile.data;
