@@ -228,10 +228,6 @@ export const serve_data = {
           xy = [intX, intY];
           bbox = new SphericalMercator().bbox(intX, intY, zoom);
         } else {
-          if (x < -180 || y < -90 || x > 180 || y > 90) {
-            return res.status(404).send('Out of bounds');
-          }
-
           //no zoom limit with coordinates
           if (zoom < tileJSON.minzoom) {
             zoom = tileJSON.minzoom;
