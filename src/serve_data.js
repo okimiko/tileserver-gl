@@ -197,43 +197,51 @@ export const serve_data = {
         } else if (format !== 'webp' && format !== 'png') {
           return res.status(400).send('Invalid format. Must be webp or png.');
         }
+
         const z = parseInt(req.params.z, 10);
         const x = parseFloat(req.params.x);
         const y = parseFloat(req.params.y);
+
         if (tileJSON.minzoom == null || tileJSON.maxzoom == null) {
           return res.status(404).send(JSON.stringify(tileJSON));
         }
-        const TILE_SIZE = 256;
-        let tileCenter;
+
+        const TILE_SIZE = tileJSON.tileSize || 512;
+        let bbox;
         let xy;
+        var zoom = z;
+
         if (Number.isInteger(x) && Number.isInteger(y)) {
           const intX = parseInt(req.params.x, 10);
           const intY = parseInt(req.params.y, 10);
+
           if (
-            z < tileJSON.minzoom ||
-            z > tileJSON.maxzoom ||
+            zoom < tileJSON.minzoom ||
+            zoom > tileJSON.maxzoom ||
             intX < 0 ||
             intY < 0 ||
-            intX >= Math.pow(2, z) ||
-            intY >= Math.pow(2, z)
+            intX >= Math.pow(2, zoom) ||
+            intY >= Math.pow(2, zoom)
           ) {
             return res.status(404).send('Out of bounds');
           }
           xy = [intX, intY];
-          tileCenter = new SphericalMercator().bbox(intX, intY, z);
+          bbox = new SphericalMercator().bbox(intX, intY, zoom);
         } else {
-          if (
-            z < tileJSON.minzoom ||
-            z > tileJSON.maxzoom ||
-            x < -180 ||
-            y < -90 ||
-            x > 180 ||
-            y > 90
-          ) {
+          if (x < -180 || y < -90 || x > 180 || y > 90) {
             return res.status(404).send('Out of bounds');
           }
-          tileCenter = [y, x, y + 0.1, x + 0.1];
-          const { minX, minY } = new SphericalMercator().xyz(tileCenter, z);
+
+          //no zoom limit with coordinates
+          if (zoom < tileJSON.minzoom) {
+            zoom = tileJSON.minzoom;
+          }
+          if (zoom > tileJSON.maxzoom) {
+            zoom = tileJSON.maxzoom;
+          }
+
+          bbox = [x, y, x + 0.1, y + 0.1];
+          const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
           xy = [minX, minY];
         }
 
@@ -247,24 +255,44 @@ export const serve_data = {
             const canvas = createCanvas(TILE_SIZE, TILE_SIZE);
             const context = canvas.getContext('2d');
             context.drawImage(image, 0, 0);
-            const imgdata = context.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
-            const arrayWidth = imgdata.width;
-            const arrayHeight = imgdata.height;
-            const bytesPerPixel = 4;
-            const xPixel = Math.floor(xy[0]);
-            const yPixel = Math.floor(xy[1]);
+
+            const long = bbox[0];
+            const lat = bbox[1];
+
+            // calculate pixel coordinate of tile,
+            // see https://developers.google.com/maps/documentation/javascript/examples/map-coordinates
+            let siny = Math.sin((lat * Math.PI) / 180);
+            // Truncating to 0.9999 effectively limits latitude to 89.189. This is
+            // about a third of a tile past the edge of the world tile.
+            siny = Math.min(Math.max(siny, -0.9999), 0.9999);
+
+            const xWorld = TILE_SIZE * (0.5 + long / 360);
+            const yWorld =
+              TILE_SIZE *
+              (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
+
+            const scale = 1 << zoom;
+
+            const xTile = Math.floor((xWorld * scale) / TILE_SIZE);
+            const yTile = Math.floor((yWorld * scale) / TILE_SIZE);
+
+            const xPixel = Math.floor(xWorld * scale) - xTile * TILE_SIZE;
+            const yPixel = Math.floor(yWorld * scale) - yTile * TILE_SIZE;
+
             if (
               xPixel < 0 ||
               yPixel < 0 ||
-              xPixel >= arrayWidth ||
-              yPixel >= arrayHeight
+              xPixel >= TILE_SIZE ||
+              yPixel >= TILE_SIZE
             ) {
-              return reject('Out of bounds Pixel');
+              return reject('Pixel is out of bounds');
             }
-            const index = (yPixel * arrayWidth + xPixel) * bytesPerPixel;
-            const red = imgdata.data[index];
-            const green = imgdata.data[index + 1];
-            const blue = imgdata.data[index + 2];
+
+            const imgdata = context.getImageData(xPixel, yPixel, 1, 1);
+            const red = imgdata.data[0];
+            const green = imgdata.data[1];
+            const blue = imgdata.data[2];
+
             let elevation;
             if (encoding === 'mapbox') {
               elevation = -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
@@ -273,6 +301,7 @@ export const serve_data = {
             } else {
               elevation = 'invalid encoding';
             }
+
             resolve(
               res.status(200).send({
                 z,
@@ -281,13 +310,15 @@ export const serve_data = {
                 red,
                 green,
                 blue,
-                latitude: tileCenter[0],
-                longitude: tileCenter[1],
+                latitude: lat,
+                longitude: long,
                 elevation,
               }),
             );
           };
+
           image.onerror = (err) => reject(err);
+
           if (format === 'webp') {
             try {
               const img = await sharp(data).toFormat('png').toBuffer();
@@ -397,6 +428,7 @@ export const serve_data = {
       const metadata = await getPMtilesInfo(source);
 
       tileJSON['encoding'] = params['encoding'];
+      tileJSON['tileSize'] = params['tileSize'];
       tileJSON['name'] = id;
       tileJSON['format'] = 'pbf';
       Object.assign(tileJSON, metadata);
@@ -418,6 +450,7 @@ export const serve_data = {
       const info = await mbw.getInfo();
       source = mbw.getMbTiles();
       tileJSON['encoding'] = params['encoding'];
+      tileJSON['tileSize'] = params['tileSize'];
       tileJSON['name'] = id;
       tileJSON['format'] = 'pbf';
 
