@@ -75,6 +75,8 @@
     {{/is_terrain}}
     {{#is_terrain}}
 
+    let baseUrl = window.location.origin;
+
     var style = {
       version: 8,
       sources: {
@@ -90,7 +92,7 @@
         },
         "contour": {
           "type": "vector",
-          "tiles": [ "{{public_url}}data/{{id}}/contour/{z}/{x}/{y}" ],
+          "tiles": [ baseUrl + "/data/{{id}}/contour/{z}/{x}/{y}" ],
         }
       },
       "glyphs": "/fonts/{fontstack}/{range}.pbf",
