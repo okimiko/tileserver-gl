@@ -12,13 +12,7 @@ import { Image, createCanvas } from 'canvas';
 import sharp from 'sharp';
 
 import { LocalDemManager } from './contour.js';
-import { fixTileJSONCenter, getTileUrls, isValidHttpUrl } from './utils.js';
-import {
-  fixTileJSONCenter,
-  getTileUrls,
-  isValidHttpUrl,
-  fetchTileData,
-} from './utils.js';
+import { fixTileJSONCenter, getTileUrls, isValidHttpUrl, fetchTileData } from './utils.js';
 import { getPMtilesInfo, openPMtiles } from './pmtiles_adapter.js';
 import { gunzipP, gzipP } from './promises.js';
 import { openMbTilesWrapper } from './mbtiles_wrapper.js';
@@ -109,154 +103,13 @@ export const serve_data = {
             data = await gunzipP(data);
             isGzipped = false;
           }
-        } else if (item.sourceType === 'mbtiles') {
-          item.source.getTile(z, x, y, async (err, data, headers) => {
-            let isGzipped;
-            if (err) {
-              if (/does not exist/.test(err.message)) {
-                return res.status(204).send();
-              } else {
-                return res
-                  .status(500)
-                  .header('Content-Type', 'text/plain')
-                  .send(err.message);
-              }
-            } else {
-              if (data == null) {
-                return res.status(404).send('Not found');
-              } else {
-                if (tileJSONFormat === 'pbf') {
-                  isGzipped =
-                    data.slice(0, 2).indexOf(Buffer.from([0x1f, 0x8b])) === 0;
-                  if (options.dataDecoratorFunc) {
-                    if (isGzipped) {
-                      data = await gunzipP(data);
-                      isGzipped = false;
-                    }
-                    data = options.dataDecoratorFunc(id, 'data', data, z, x, y);
-                  }
-                }
-                if (format === 'pbf') {
-                  headers['Content-Type'] = 'application/x-protobuf';
-                } else if (format === 'geojson') {
-                  headers['Content-Type'] = 'application/json';
-
-                  if (isGzipped) {
-                    data = await gunzipP(data);
-                    isGzipped = false;
-                  }
-
-                  const tile = new VectorTile(new Pbf(data));
-                  const geojson = {
-                    type: 'FeatureCollection',
-                    features: [],
-                  };
-                  for (const layerName in tile.layers) {
-                    const layer = tile.layers[layerName];
-                    for (let i = 0; i < layer.length; i++) {
-                      const feature = layer.feature(i);
-                      const featureGeoJSON = feature.toGeoJSON(x, y, z);
-                      featureGeoJSON.properties.layer = layerName;
-                      geojson.features.push(featureGeoJSON);
-                    }
-                  }
-                  data = JSON.stringify(geojson);
-                }
-                delete headers['ETag']; // do not trust the tile ETag -- regenerate
-                headers['Content-Encoding'] = 'gzip';
-                res.set(headers);
-
-                if (!isGzipped) {
-                  data = await gzipP(data);
-                }
-
-                return res.status(200).send(data);
-              }
-            }
-          });
-        }
-      },
-    );
-
-    app.get(
-      '^/:id/contour/:z([0-9]+)/:x([-.0-9]+)/:y([-.0-9]+)',
-      async (req, res, next) => {
-        try {
-          const item = repo?.[req.params.id];
-          if (!item) return res.sendStatus(404);
-          if (!item.source) return res.status(404).send('Missing source');
-          if (!item.tileJSON) return res.status(404).send('Missing tileJSON');
-          if (!item.sourceType)
-            return res.status(404).send('Missing sourceType');
-
-          const { source, tileJSON, sourceType } = item;
-
-          if (sourceType !== 'pmtiles' && sourceType !== 'mbtiles') {
-            return res
-              .status(400)
-              .send('Invalid sourceType. Must be pmtiles or mbtiles.');
-          }
-
-          const encoding = tileJSON?.encoding;
-          if (encoding == null) {
-            return res.status(400).send('Missing tileJSON.encoding');
-          } else if (encoding !== 'terrarium' && encoding !== 'mapbox') {
-            return res
-              .status(400)
-              .send('Invalid encoding. Must be terrarium or mapbox.');
-          }
-
-          const format = tileJSON?.format;
-          if (format == null) {
-            return res.status(400).send('Missing tileJSON.format');
-          } else if (format !== 'webp' && format !== 'png') {
-            return res.status(400).send('Invalid format. Must be webp or png.');
-          }
-
-          const maxzoom = tileJSON?.maxzoom;
-          if (maxzoom == null) {
-            return res.status(400).send('Missing tileJSON.maxzoom');
-          }
-
-          const z = parseInt(req.params.z, 10);
-          const x = parseFloat(req.params.x);
-          const y = parseFloat(req.params.y);
-
-          const demManagerInit = new LocalDemManager(
-            encoding,
-            maxzoom,
-            source,
-            sourceType,
-          );
-          const demManager = await demManagerInit.getManager();
-
-          let levels;
-          if (z <= 8) {
-            levels = 1000;
-          } else if (z <= 10) {
-            levels = 500;
-          } else if (z <= 11) {
-            levels = 250;
-          } else if (z <= 12) {
-            levels = 100;
-          } else if (z <= 13) {
-            levels = 50;
-          } else if (z <= 14) {
-            levels = 25;
-          } else if (z <= 15) {
-            levels = 20;
-          } else if (z <= 17) {
-            levels = 10;
-          } else if (z >= 18) {
-            levels = 5;
-          }
-
-          const { arrayBuffer } = await demManager.fetchContourTile(
+          data = options.dataDecoratorFunc(
+            req.params.id,
+            'data',
+            data,
             z,
             x,
             y,
-            { levels: [levels] },
-            new AbortController(),
           );
         }
       }
@@ -292,6 +145,117 @@ export const serve_data = {
       }
 
       return res.status(200).send(data);
+    });
+
+    /**
+     * Handles requests for contour data.
+     * @param {object} req - Express request object.
+     * @param {object} res - Express response object.
+     * @param {string} req.params.id - ID of the contour data.
+     * @param {string} req.params.z - Z coordinate of the tile.
+     * @param {string} req.params.x - X coordinate of the tile (either integer or float).
+     * @param {string} req.params.y - Y coordinate of the tile (either integer or float).
+     * @returns {Promise<void>}
+     */
+    app.get('/:id/contour/:z/:x/:y', async (req, res, next) => {
+      try {
+        if (verbose) {
+          console.log(
+            `Handling contour request for: /data/%s/contour/%s/%s/%s`,
+            String(req.params.id).replace(/\n|\r/g, ''),
+            String(req.params.z).replace(/\n|\r/g, ''),
+            String(req.params.x).replace(/\n|\r/g, ''),
+            String(req.params.y).replace(/\n|\r/g, ''),
+          );
+        }
+        const item = repo?.[req.params.id];
+        if (!item) return res.sendStatus(404);
+        if (!item.source) return res.status(404).send('Missing source');
+        if (!item.tileJSON) return res.status(404).send('Missing tileJSON');
+        if (!item.sourceType)
+          return res.status(404).send('Missing sourceType');
+
+        const { source, tileJSON, sourceType } = item;
+
+        if (sourceType !== 'pmtiles' && sourceType !== 'mbtiles') {
+          return res
+            .status(400)
+            .send('Invalid sourceType. Must be pmtiles or mbtiles.');
+        }
+
+        const encoding = tileJSON?.encoding;
+        if (encoding == null) {
+          return res.status(400).send('Missing tileJSON.encoding');
+        } else if (encoding !== 'terrarium' && encoding !== 'mapbox') {
+          return res
+            .status(400)
+            .send('Invalid encoding. Must be terrarium or mapbox.');
+        }
+
+        const format = tileJSON?.format;
+        if (format == null) {
+          return res.status(400).send('Missing tileJSON.format');
+        } else if (format !== 'webp' && format !== 'png') {
+          return res.status(400).send('Invalid format. Must be webp or png.');
+        }
+
+        const maxzoom = tileJSON?.maxzoom;
+        if (maxzoom == null) {
+          return res.status(400).send('Missing tileJSON.maxzoom');
+        }
+
+        const z = parseInt(req.params.z, 10);
+        const x = parseFloat(req.params.x);
+        const y = parseFloat(req.params.y);
+
+        const demManagerInit = new LocalDemManager(
+          encoding,
+          maxzoom,
+          source,
+          sourceType,
+        );
+        const demManager = await demManagerInit.getManager();
+
+        let levels;
+        if (z <= 8) {
+          levels = 1000;
+        } else if (z <= 10) {
+          levels = 500;
+        } else if (z <= 11) {
+          levels = 250;
+        } else if (z <= 12) {
+          levels = 100;
+        } else if (z <= 13) {
+          levels = 50;
+        } else if (z <= 14) {
+          levels = 25;
+        } else if (z <= 15) {
+          levels = 20;
+        } else if (z <= 17) {
+          levels = 10;
+        } else if (z >= 18) {
+          levels = 5;
+        }
+
+        const { arrayBuffer } = await demManager.fetchContourTile(
+          z,
+          x,
+          y,
+          { levels: [levels] },
+          new AbortController(),
+        );
+        // Set the Content-Type header here
+        res.setHeader('Content-Type', 'application/x-protobuf');
+        res.setHeader('Content-Encoding', 'gzip');
+        let data = Buffer.from(arrayBuffer);
+        data = await gzipP(data);
+        res.send(data);
+      } catch (err) {
+        return res
+          .status(500)
+          .header('Content-Type', 'text/plain')
+          .send(err.message);
+      }
     });
 
     /**
@@ -340,12 +304,15 @@ export const serve_data = {
         } else if (format !== 'webp' && format !== 'png') {
           return res.status(400).send('Invalid format. Must be webp or png.');
         }
+
         const z = parseInt(req.params.z, 10);
         const x = parseFloat(req.params.x);
         const y = parseFloat(req.params.y);
+
         if (tileJSON.minzoom == null || tileJSON.maxzoom == null) {
           return res.status(404).send(JSON.stringify(tileJSON));
         }
+
         const TILE_SIZE = tileJSON.tileSize || 512;
         let bbox;
         let xy;
@@ -354,6 +321,7 @@ export const serve_data = {
         if (Number.isInteger(x) && Number.isInteger(y)) {
           const intX = parseInt(req.params.x, 10);
           const intY = parseInt(req.params.y, 10);
+
           if (
             zoom < tileJSON.minzoom ||
             zoom > tileJSON.maxzoom ||
@@ -374,6 +342,7 @@ export const serve_data = {
           if (zoom > tileJSON.maxzoom) {
             zoom = tileJSON.maxzoom;
           }
+
           bbox = [x, y, x + 0.1, y + 0.1];
           const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
           xy = [minX, minY];
@@ -384,7 +353,7 @@ export const serve_data = {
           sourceType,
           zoom,
           xy[0],
-          xy[1],
+          xy[1]
         );
         if (fetchTile == null) return res.status(204).send();
 
@@ -395,6 +364,7 @@ export const serve_data = {
             const canvas = createCanvas(TILE_SIZE, TILE_SIZE);
             const context = canvas.getContext('2d');
             context.drawImage(image, 0, 0);
+
             const long = bbox[0];
             const lat = bbox[1];
 
@@ -404,6 +374,7 @@ export const serve_data = {
             // Truncating to 0.9999 effectively limits latitude to 89.189. This is
             // about a third of a tile past the edge of the world tile.
             siny = Math.min(Math.max(siny, -0.9999), 0.9999);
+
             const xWorld = TILE_SIZE * (0.5 + long / 360);
             const yWorld =
               TILE_SIZE *
@@ -416,6 +387,7 @@ export const serve_data = {
 
             const xPixel = Math.floor(xWorld * scale) - xTile * TILE_SIZE;
             const yPixel = Math.floor(yWorld * scale) - yTile * TILE_SIZE;
+
             if (
               xPixel < 0 ||
               yPixel < 0 ||
@@ -424,10 +396,12 @@ export const serve_data = {
             ) {
               return reject('Out of bounds Pixel');
             }
+
             const imgdata = context.getImageData(xPixel, yPixel, 1, 1);
             const red = imgdata.data[0];
             const green = imgdata.data[1];
             const blue = imgdata.data[2];
+
             let elevation;
             if (encoding === 'mapbox') {
               elevation = -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
@@ -436,6 +410,7 @@ export const serve_data = {
             } else {
               elevation = 'invalid encoding';
             }
+
             resolve(
               res.status(200).send({
                 z: zoom,
@@ -450,7 +425,9 @@ export const serve_data = {
               }),
             );
           };
+
           image.onerror = (err) => reject(err);
+
           if (format === 'webp') {
             try {
               const img = await sharp(data).toFormat('png').toBuffer();
