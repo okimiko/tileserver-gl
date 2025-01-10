@@ -12,7 +12,12 @@ import { Image, createCanvas } from 'canvas';
 import sharp from 'sharp';
 
 import { LocalDemManager } from './contour.js';
-import { fixTileJSONCenter, getTileUrls, isValidHttpUrl, fetchTileData } from './utils.js';
+import {
+  fixTileJSONCenter,
+  getTileUrls,
+  isValidHttpUrl,
+  fetchTileData,
+} from './utils.js';
 import { getPMtilesInfo, openPMtiles } from './pmtiles_adapter.js';
 import { gunzipP, gzipP } from './promises.js';
 import { openMbTilesWrapper } from './mbtiles_wrapper.js';
@@ -172,8 +177,7 @@ export const serve_data = {
         if (!item) return res.sendStatus(404);
         if (!item.source) return res.status(404).send('Missing source');
         if (!item.tileJSON) return res.status(404).send('Missing tileJSON');
-        if (!item.sourceType)
-          return res.status(404).send('Missing sourceType');
+        if (!item.sourceType) return res.status(404).send('Missing sourceType');
 
         const { source, tileJSON, sourceType } = item;
 
@@ -353,7 +357,7 @@ export const serve_data = {
           sourceType,
           zoom,
           xy[0],
-          xy[1]
+          xy[1],
         );
         if (fetchTile == null) return res.status(204).send();
 
