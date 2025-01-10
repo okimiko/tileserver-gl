@@ -260,7 +260,7 @@ export function readFile(filename) {
  */
 async function getFontPbf(allowedFonts, fontPath, name, range, fallbacks) {
   if (!allowedFonts || (allowedFonts[name] && fallbacks)) {
-    const fontMatch = name?.match(/^[\p{L}\p{N} \-\.~!*\'()@&=+,#$\[\]]+$/u);
+    const fontMatch = name?.match(/^[\p{L}\p{N} \-\.~!*'()@&=+,#$\[\]]+$/u);
     const sanitizedName = fontMatch?.[0] || 'invalid';
     if (!name || typeof name !== 'string' || name.trim() === '' || !fontMatch) {
       console.error(
