@@ -76,8 +76,6 @@
     {{/is_terrain}}
     {{#is_terrain}}
 
-    let baseUrl = window.location.origin;
-
     var style = {
       version: 8,
       sources: {
@@ -93,7 +91,7 @@
         },
         "contour": {
           "type": "vector",
-          "tiles": [ baseUrl + "/data/{{id}}/contour/{z}/{x}/{y}" ],
+          "tiles": [ "{{public_url}}/data/{{id}}/contour/{z}/{x}/{y}" ],
         }
       },
       "glyphs": "/fonts/{fontstack}/{range}.pbf",
@@ -104,7 +102,11 @@
         {
           "id": "background",
           "paint": {
+            {{#if is_terrainrgb}}
             "background-color": "hsl(190, 99%, 63%)"
+            {{else}}
+            "background-color": "hsl(0, 100%, 25%)"
+            {{/if}}
           },
           "type": "background"
         },
@@ -179,7 +181,7 @@
 
     map.addControl(
       new ElevationInfoControl({
-        url: baseUrl + "/data/{{id}}/elevation/{z}/{x}/{y}"
+        url: "{{public_url}}data/{{id}}/elevation/{z}/{x}/{y}"
       })
     );
     {{/is_terrain}}
