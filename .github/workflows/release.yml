@@ -144,7 +144,7 @@ jobs:
           bodyFile: changelog_for_version.md
           allowUpdates: true
           draft: false
-          prerelease: ${{ env.PRERELEASE }}
+          prerelease: ${{ steps.prepare_release.outputs.prerelease }}
 
       - name: Create Tileserver Light Directory
         run: node publish.js --no-publish
