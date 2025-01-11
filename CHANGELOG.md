@@ -1,5 +1,8 @@
 # tileserver-gl changelog
 
+## 5.1.1-pre.0
+* Fix wrong node version in Docker image (https://github.com/maptiler/tileserver-gl/pull/1438) by @acalcutt
+
 ## 5.1.0
 * Update recommended node to v22 + Update docker images to use node 22 (https://github.com/maptiler/tileserver-gl/pull/1438) by @acalcutt
 * Upgrade Express to v5 + Canvas to v3 + code cleanup (https://github.com/maptiler/tileserver-gl/pull/1429) by @acalcutt
