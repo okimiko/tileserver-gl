@@ -1,6 +1,6 @@
 {
   "name": "tileserver-gl",
-  "version": "5.0.0",
+  "version": "5.1.1",
   "description": "Map tile server for JSON GL styles - vector and server side generated raster tiles",
   "main": "src/main.js",
   "bin": "src/main.js",
@@ -36,13 +36,13 @@
     "@sindresorhus/fnv1a": "3.1.0",
     "advanced-pool": "0.3.3",
     "axios": "^1.7.7",
-    "canvas": "2.11.2",
+    "canvas": "3.0.1",
     "chokidar": "3.6.0",
     "clone": "2.1.2",
     "color": "4.2.3",
     "commander": "12.1.0",
     "cors": "2.8.5",
-    "express": "4.19.2",
+    "express": "5.0.1",
     "handlebars": "4.7.8",
     "http-shutdown": "1.2.2",
     "leaflet": "1.9.4",
@@ -53,6 +53,7 @@
     "pmtiles": "3.0.7",
     "proj4": "2.12.1",
     "sanitize-filename": "1.6.3",
+    "semver": "^7.6.3",
     "sharp": "0.33.5",
     "tileserver-gl-styles": "2.0.0"
   },
@@ -84,7 +85,7 @@
   ],
   "license": "BSD-2-Clause",
   "engines": {
-    "node": ">=18.17.0 <21"
+    "node": ">=18.17.0 <23"
   },
   "repository": {
     "url": "git+https://github.com/maptiler/tileserver-gl.git",
