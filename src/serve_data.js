@@ -308,15 +308,12 @@ export const serve_data = {
         } else if (format !== 'webp' && format !== 'png') {
           return res.status(400).send('Invalid format. Must be webp or png.');
         }
-
         const z = parseInt(req.params.z, 10);
         const x = parseFloat(req.params.x);
         const y = parseFloat(req.params.y);
-
         if (tileJSON.minzoom == null || tileJSON.maxzoom == null) {
           return res.status(404).send(JSON.stringify(tileJSON));
         }
-
         const TILE_SIZE = tileJSON.tileSize || 512;
         let bbox;
         let xy;
@@ -325,7 +322,6 @@ export const serve_data = {
         if (Number.isInteger(x) && Number.isInteger(y)) {
           const intX = parseInt(req.params.x, 10);
           const intY = parseInt(req.params.y, 10);
-
           if (
             zoom < tileJSON.minzoom ||
             zoom > tileJSON.maxzoom ||
@@ -346,7 +342,6 @@ export const serve_data = {
           if (zoom > tileJSON.maxzoom) {
             zoom = tileJSON.maxzoom;
           }
-
           bbox = [x, y, x + 0.1, y + 0.1];
           const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
           xy = [minX, minY];
@@ -368,7 +363,6 @@ export const serve_data = {
             const canvas = createCanvas(TILE_SIZE, TILE_SIZE);
             const context = canvas.getContext('2d');
             context.drawImage(image, 0, 0);
-
             const long = bbox[0];
             const lat = bbox[1];
 
@@ -378,7 +372,6 @@ export const serve_data = {
             // Truncating to 0.9999 effectively limits latitude to 89.189. This is
             // about a third of a tile past the edge of the world tile.
             siny = Math.min(Math.max(siny, -0.9999), 0.9999);
-
             const xWorld = TILE_SIZE * (0.5 + long / 360);
             const yWorld =
               TILE_SIZE *
@@ -391,7 +384,6 @@ export const serve_data = {
 
             const xPixel = Math.floor(xWorld * scale) - xTile * TILE_SIZE;
             const yPixel = Math.floor(yWorld * scale) - yTile * TILE_SIZE;
-
             if (
               xPixel < 0 ||
               yPixel < 0 ||
@@ -400,12 +392,10 @@ export const serve_data = {
             ) {
               return reject('Out of bounds Pixel');
             }
-
             const imgdata = context.getImageData(xPixel, yPixel, 1, 1);
             const red = imgdata.data[0];
             const green = imgdata.data[1];
             const blue = imgdata.data[2];
-
             let elevation;
             if (encoding === 'mapbox') {
               elevation = -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
@@ -414,7 +404,6 @@ export const serve_data = {
             } else {
               elevation = 'invalid encoding';
             }
-
             resolve(
               res.status(200).send({
                 z: zoom,
@@ -429,9 +418,7 @@ export const serve_data = {
               }),
             );
           };
-
           image.onerror = (err) => reject(err);
-
           if (format === 'webp') {
             try {
               const img = await sharp(data).toFormat('png').toBuffer();
