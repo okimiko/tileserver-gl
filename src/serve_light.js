@@ -6,5 +6,8 @@ export const serve_rendered = {
   init: (options, repo, programOpts) => {},
   add: (options, repo, params, id, programOpts, dataResolver) => {},
   remove: (repo, id) => {},
-  getTerrainElevation: (data, param) => { param["elevation"] = "not supported in light"; return param; },
+  getTerrainElevation: (data, param) => {
+    param['elevation'] = 'not supported in light';
+    return param;
+  },
 };

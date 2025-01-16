@@ -14,6 +14,9 @@ export const allowedTileSizes = allowedOptions(['256', '512']);
 
 import { fileURLToPath } from 'url';
 
+/**
+ *
+ */
 export function isLight() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);

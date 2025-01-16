@@ -249,9 +249,20 @@ export const serve_data = {
         if (fetchTile == null) return res.status(204).send();
 
         let data = fetchTile.data;
-        var param = { long: bbox[0], lat: bbox[1], encoding, format, tile_size: TILE_SIZE, z: zoom, x: xy[0], y: xy[1] };
+        var param = {
+          long: bbox[0],
+          lat: bbox[1],
+          encoding,
+          format,
+          tile_size: TILE_SIZE,
+          z: zoom,
+          x: xy[0],
+          y: xy[1],
+        };
 
-        res.status(200).send(await serve_rendered.getTerrainElevation(data, param));
+        res
+          .status(200)
+          .send(await serve_rendered.getTerrainElevation(data, param));
       } catch (err) {
         return res
           .status(500)
