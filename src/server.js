@@ -571,15 +571,17 @@ async function start(opts) {
       data.is_vector = tileJSON.format === 'pbf';
       if (!data.is_vector) {
         if (
-          (tileJSON.encoding === 'terrarium' ||
-            tileJSON.encoding === 'mapbox') &&
-          !isLight
+          tileJSON.encoding === 'terrarium' ||
+          tileJSON.encoding === 'mapbox'
         ) {
-          data.elevation_link = getTileUrls(
-            req,
-            tileJSON.tiles,
-            `data/${id}/elevation`,
-          )[0];
+          if (!isLight) {
+            data.elevation_link = getTileUrls(
+              req,
+              tileJSON.tiles,
+              `data/${id}/elevation`,
+            )[0];
+          }
+          data.is_terrain = true;
         }
         if (center) {
           const centerPx = mercator.px([center[0], center[1]], center[2]);
@@ -698,7 +700,7 @@ async function start(opts) {
       is_terrain: is_terrain,
       is_terrainrgb: data.tileJSON.encoding === 'mapbox',
       terrain_encoding: data.tileJSON.encoding,
-      isLight: isLight,
+      is_light: isLight,
     };
   });
 
