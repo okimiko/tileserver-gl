@@ -697,6 +697,7 @@ async function start(opts) {
       is_terrain: is_terrain,
       is_terrainrgb: data.tileJSON.encoding === 'mapbox',
       terrain_encoding: data.tileJSON.encoding,
+      isLight: isLight,
     };
   });
 

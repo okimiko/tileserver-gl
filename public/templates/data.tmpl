@@ -9,7 +9,9 @@
   <link rel="stylesheet" type="text/css" href="{{public_url}}maplibre-gl-inspect.css{{&key_query}}" />
   <script src="{{public_url}}maplibre-gl.js{{&key_query}}"></script>
   <script src="{{public_url}}maplibre-gl-inspect.js{{&key_query}}"></script>
+  {{^isLight}}
   <script src="{{public_url}}elevation-control.js{{&key_query}}"></script>
+  {{/isLight}}
   <style>
     body {background:#fff;color:#333;font-family:Arial, sans-serif;}
     {{^is_terrain}}
@@ -21,7 +23,9 @@
     h1 {position:absolute;top:5px;right:0;width:240px;margin:0;line-height:20px;font-size:20px;}
     #layerList {position:absolute;top:35px;right:0;bottom:0;width:240px;overflow:auto;}
     #layerList div div {width:15px;height:15px;display:inline-block;}
+    {{^isLight}}
     .maplibre-ctrl-elevation { padding-left: 5px; padding-right: 5px; }
+    {{/isLight}}
   </style>
   {{/use_maplibre}}
   {{^use_maplibre}}
@@ -135,11 +139,13 @@
       })
     );
 
+    {{^isLight}}
     map.addControl(
       new ElevationInfoControl({
         url: "{{public_url}}data/{{id}}/elevation/{z}/{x}/{y}"
       })
     );
+    {{/isLight}}
     {{/is_terrain}}
     {{^is_terrain}}
 
