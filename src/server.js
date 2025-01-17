@@ -571,8 +571,9 @@ async function start(opts) {
       data.is_vector = tileJSON.format === 'pbf';
       if (!data.is_vector) {
         if (
-          tileJSON.encoding === 'terrarium' ||
-          tileJSON.encoding === 'mapbox'
+          (tileJSON.encoding === 'terrarium' ||
+            tileJSON.encoding === 'mapbox') &&
+          !isLight
         ) {
           data.elevation_link = getTileUrls(
             req,
