@@ -12,20 +12,6 @@ export const allowedSpriteFormats = allowedOptions(['png', 'json']);
 
 export const allowedTileSizes = allowedOptions(['256', '512']);
 
-import { fileURLToPath } from 'url';
-
-/**
- *
- */
-export function isLight() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const packageJson = JSON.parse(
-    fs.readFileSync(__dirname + '/../package.json', 'utf8'),
-  );
-  return packageJson.name.slice(-6) === '-light';
-}
-
 /**
  * Restrict user input to an allowed set of options.
  * @param {string[]} opts - An array of allowed option strings.

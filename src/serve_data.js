@@ -14,14 +14,20 @@ import {
   getTileUrls,
   isValidHttpUrl,
   fetchTileData,
-  isLight,
 } from './utils.js';
 import { getPMtilesInfo, openPMtiles } from './pmtiles_adapter.js';
 import { gunzipP, gzipP } from './promises.js';
 import { openMbTilesWrapper } from './mbtiles_wrapper.js';
 
+import fs from 'node:fs';
+import { fileURLToPath } from 'url';
+const packageJson = JSON.parse(
+  fs.readFileSync(path.dirname(fileURLToPath(import.meta.url)) + '/../package.json', 'utf8'),
+);
+
+const isLight = (packageJson.name.slice(-6) === '-light');
 const serve_rendered = (
-  await import(`${!isLight() ? `./serve_rendered.js` : `./serve_light.js`}`)
+  await import(`${!isLight ? `./serve_rendered.js` : `./serve_light.js`}`)
 ).serve_rendered;
 
 export const serve_data = {
