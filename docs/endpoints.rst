@@ -108,6 +108,8 @@ Source data
 
     * the result will be a json object like ``{"z":7,"x":68,"y":45,"red":134,"green":66,"blue":0,"latitude":11.84069,"longitude":46.04798,"elevation":1602}``
 
+  * The elevation api is not available in the ``tileserver-gl-light`` version.
+
 Static files
 ===========
 * Static files are served at ``/files/{filename}``

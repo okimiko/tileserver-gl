@@ -24,13 +24,12 @@ import {
 } from './utils.js';
 
 import { fileURLToPath } from 'url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(
   fs.readFileSync(__dirname + '/../package.json', 'utf8'),
 );
-
 const isLight = packageJson.name.slice(-6) === '-light';
+
 const serve_rendered = (
   await import(`${!isLight ? `./serve_rendered.js` : `./serve_light.js`}`)
 ).serve_rendered;
@@ -575,11 +574,14 @@ async function start(opts) {
           tileJSON.encoding === 'terrarium' ||
           tileJSON.encoding === 'mapbox'
         ) {
-          data.elevation_link = getTileUrls(
-            req,
-            tileJSON.tiles,
-            `data/${id}/elevation`,
-          )[0];
+          if (!isLight) {
+            data.elevation_link = getTileUrls(
+              req,
+              tileJSON.tiles,
+              `data/${id}/elevation`,
+            )[0];
+          }
+          data.is_terrain = true;
         }
         if (center) {
           const centerPx = mercator.px([center[0], center[1]], center[2]);
@@ -698,6 +700,7 @@ async function start(opts) {
       is_terrain: is_terrain,
       is_terrainrgb: data.tileJSON.encoding === 'mapbox',
       terrain_encoding: data.tileJSON.encoding,
+      is_light: isLight,
     };
   });
 
