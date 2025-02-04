@@ -8,8 +8,6 @@ import express from 'express';
 import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
 import SphericalMercator from '@mapbox/sphericalmercator';
-import { Image, createCanvas } from 'canvas';
-import sharp from 'sharp';
 
 import { LocalDemManager } from './contour.js';
 import {
@@ -21,6 +19,20 @@ import {
 import { getPMtilesInfo, openPMtiles } from './pmtiles_adapter.js';
 import { gunzipP, gzipP } from './promises.js';
 import { openMbTilesWrapper } from './mbtiles_wrapper.js';
+
+import fs from 'node:fs';
+import { fileURLToPath } from 'url';
+const packageJson = JSON.parse(
+  fs.readFileSync(
+    path.dirname(fileURLToPath(import.meta.url)) + '/../package.json',
+    'utf8',
+  ),
+);
+
+const isLight = packageJson.name.slice(-6) === '-light';
+const serve_rendered = (
+  await import(`${!isLight ? `./serve_rendered.js` : `./serve_light.js`}`)
+).serve_rendered;
 
 export const serve_data = {
   /**
@@ -357,79 +369,20 @@ export const serve_data = {
         if (fetchTile == null) return res.status(204).send();
 
         let data = fetchTile.data;
-        const image = new Image();
-        await new Promise(async (resolve, reject) => {
-          image.onload = async () => {
-            const canvas = createCanvas(TILE_SIZE, TILE_SIZE);
-            const context = canvas.getContext('2d');
-            context.drawImage(image, 0, 0);
-            const long = bbox[0];
-            const lat = bbox[1];
+        var param = {
+          long: bbox[0],
+          lat: bbox[1],
+          encoding,
+          format,
+          tile_size: TILE_SIZE,
+          z: zoom,
+          x: xy[0],
+          y: xy[1],
+        };
 
-            // calculate pixel coordinate of tile,
-            // see https://developers.google.com/maps/documentation/javascript/examples/map-coordinates
-            let siny = Math.sin((lat * Math.PI) / 180);
-            // Truncating to 0.9999 effectively limits latitude to 89.189. This is
-            // about a third of a tile past the edge of the world tile.
-            siny = Math.min(Math.max(siny, -0.9999), 0.9999);
-            const xWorld = TILE_SIZE * (0.5 + long / 360);
-            const yWorld =
-              TILE_SIZE *
-              (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
-
-            const scale = 1 << zoom;
-
-            const xTile = Math.floor((xWorld * scale) / TILE_SIZE);
-            const yTile = Math.floor((yWorld * scale) / TILE_SIZE);
-
-            const xPixel = Math.floor(xWorld * scale) - xTile * TILE_SIZE;
-            const yPixel = Math.floor(yWorld * scale) - yTile * TILE_SIZE;
-            if (
-              xPixel < 0 ||
-              yPixel < 0 ||
-              xPixel >= TILE_SIZE ||
-              yPixel >= TILE_SIZE
-            ) {
-              return reject('Out of bounds Pixel');
-            }
-            const imgdata = context.getImageData(xPixel, yPixel, 1, 1);
-            const red = imgdata.data[0];
-            const green = imgdata.data[1];
-            const blue = imgdata.data[2];
-            let elevation;
-            if (encoding === 'mapbox') {
-              elevation = -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
-            } else if (encoding === 'terrarium') {
-              elevation = red * 256 + green + blue / 256 - 32768;
-            } else {
-              elevation = 'invalid encoding';
-            }
-            resolve(
-              res.status(200).send({
-                z: zoom,
-                x: xy[0],
-                y: xy[1],
-                red,
-                green,
-                blue,
-                latitude: lat,
-                longitude: long,
-                elevation,
-              }),
-            );
-          };
-          image.onerror = (err) => reject(err);
-          if (format === 'webp') {
-            try {
-              const img = await sharp(data).toFormat('png').toBuffer();
-              image.src = img;
-            } catch (err) {
-              reject(err);
-            }
-          } else {
-            image.src = data;
-          }
-        });
+        res
+          .status(200)
+          .send(await serve_rendered.getTerrainElevation(data, param));
       } catch (err) {
         return res
           .status(500)

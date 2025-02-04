@@ -1,5 +1,11 @@
 # tileserver-gl changelog
 
+## 5.1.3
+* Fix SIGHUP (broken since 5.1.x) (https://github.com/maptiler/tileserver-gl/pull/1452) by @okimiko
+
+## 5.1.2
+* Fix broken light (invalid use of heavy dependencies) (https://github.com/maptiler/tileserver-gl/pull/1449) by @okimiko
+
 ## 5.1.1
 * Fix wrong node version in Docker image (https://github.com/maptiler/tileserver-gl/pull/1442) by @acalcutt
 
