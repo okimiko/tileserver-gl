@@ -107,7 +107,7 @@ export class LocalDemManager {
    * @throws If an error occurs fetching or processing the tile.
    */
   async GetTile(url, abortController) {
-    console.log(url);
+    //console.log(url);
     const $zxy = this.extractZXYFromUrlTrim(url);
     if (!$zxy) {
       throw new Error(`Could not extract zxy from $url`);
@@ -171,7 +171,7 @@ export class LocalDemManager {
       };
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.log('fetch cancelled');
+        console.log('fetch canceled');
         return null;
       }
       throw error;
