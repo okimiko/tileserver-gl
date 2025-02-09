@@ -7,7 +7,7 @@
 // This happens on ARM:
 //  > terminate called after throwing an instance of 'std::runtime_error'
 //  > what():  Cannot read GLX extensions.
-import 'canvas';
+import { Image, createCanvas } from 'canvas';
 import '@maplibre/maplibre-gl-native';
 //
 // SECTION END
@@ -15,7 +15,6 @@ import '@maplibre/maplibre-gl-native';
 import advancedPool from 'advanced-pool';
 import path from 'path';
 import url from 'url';
-import util from 'util';
 import sharp from 'sharp';
 import clone from 'clone';
 import Color from 'color';
@@ -1457,5 +1456,95 @@ export const serve_rendered = {
       });
     }
     delete repo[id];
+  },
+  /**
+   * Removes all items from the repository.
+   * @param {object} repo Repository object.
+   * @returns {void}
+   */
+  clear: function (repo) {
+    Object.keys(repo).forEach((id) => {
+      const item = repo[id];
+      if (item) {
+        item.map.renderers.forEach((pool) => {
+          pool.close();
+        });
+        item.map.renderersStatic.forEach((pool) => {
+          pool.close();
+        });
+      }
+      delete repo[id];
+    });
+  },
+  /**
+   * Get the elevation of terrain tile data by rendering it to a canvas image
+   * @param {object} data The background color (or empty string for transparent).
+   * @param {object} param Required parameters (coordinates e.g.)
+   * @returns {object}
+   */
+  getTerrainElevation: async function (data, param) {
+    return await new Promise(async (resolve, reject) => {
+      const image = new Image();
+      image.onload = async () => {
+        const canvas = createCanvas(param['tile_size'], param['tile_size']);
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+
+        // calculate pixel coordinate of tile,
+        // see https://developers.google.com/maps/documentation/javascript/examples/map-coordinates
+        let siny = Math.sin((param['lat'] * Math.PI) / 180);
+        // Truncating to 0.9999 effectively limits latitude to 89.189. This is
+        // about a third of a tile past the edge of the world tile.
+        siny = Math.min(Math.max(siny, -0.9999), 0.9999);
+        const xWorld = param['tile_size'] * (0.5 + param['long'] / 360);
+        const yWorld =
+          param['tile_size'] *
+          (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI));
+
+        const scale = 1 << param['z'];
+
+        const xTile = Math.floor((xWorld * scale) / param['tile_size']);
+        const yTile = Math.floor((yWorld * scale) / param['tile_size']);
+
+        const xPixel = Math.floor(xWorld * scale) - xTile * param['tile_size'];
+        const yPixel = Math.floor(yWorld * scale) - yTile * param['tile_size'];
+        if (
+          xPixel < 0 ||
+          yPixel < 0 ||
+          xPixel >= param['tile_size'] ||
+          yPixel >= param['tile_size']
+        ) {
+          return reject('Out of bounds Pixel');
+        }
+        const imgdata = context.getImageData(xPixel, yPixel, 1, 1);
+        const red = imgdata.data[0];
+        const green = imgdata.data[1];
+        const blue = imgdata.data[2];
+        let elevation;
+        if (param['encoding'] === 'mapbox') {
+          elevation = -10000 + (red * 256 * 256 + green * 256 + blue) * 0.1;
+        } else if (param['encoding'] === 'terrarium') {
+          elevation = red * 256 + green + blue / 256 - 32768;
+        } else {
+          elevation = 'invalid encoding';
+        }
+        param['elevation'] = elevation;
+        param['red'] = red;
+        param['green'] = green;
+        param['blue'] = blue;
+        resolve(param);
+      };
+      image.onerror = (err) => reject(err);
+      if (param['format'] === 'webp') {
+        try {
+          const img = await sharp(data).toFormat('png').toBuffer();
+          image.src = img;
+        } catch (err) {
+          reject(err);
+        }
+      } else {
+        image.src = data;
+      }
+    });
   },
 };
