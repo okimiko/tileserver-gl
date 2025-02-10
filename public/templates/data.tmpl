@@ -92,10 +92,12 @@
           "type": "raster-dem",
           "url": "{{public_url}}data/{{id}}.json",
           "encoding": "{{terrain_encoding}}"
+        {{^is_light}}
         },
         "contour": {
           "type": "vector",
           "tiles": [ baseUrl + "/data/{{id}}/contour/{z}/{x}/{y}" ],
+        {{/is_light}}
         }
       },
       "glyphs": "/fonts/{fontstack}/{range}.pbf",
@@ -123,6 +125,7 @@
             "hillshade-illumination-direction": 315,
             "hillshade-exaggeration": 0.8
           }
+        {{^is_light}}
         },
         {
           "id": "contours",
@@ -150,6 +153,7 @@
             "text-field": "{ele}",
             "text-font": ["Noto Sans Bold"]
           }
+        {{/is_light}}
         }
       ]
     };
