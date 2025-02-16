@@ -74,8 +74,8 @@ export const serve_data = {
       }
       const tileJSONFormat = item.tileJSON.format;
       const z = parseInt(req.params.z, 10);
-      const x = parseInt(req.params.x, 10);
-      const y = parseInt(req.params.y, 10);
+      const x = parseFloat(req.params.x);
+      const y = parseFloat(req.params.y);
       if (isNaN(z) || isNaN(x) || isNaN(y)) {
         return res.status(404).send('Invalid Tile');
       }
@@ -90,23 +90,45 @@ export const serve_data = {
       ) {
         return res.status(404).send('Invalid format');
       }
-      if (
-        z < item.tileJSON.minzoom ||
-        x < 0 ||
-        y < 0 ||
-        z > item.tileJSON.maxzoom ||
-        x >= Math.pow(2, z) ||
-        y >= Math.pow(2, z)
-      ) {
-        return res.status(404).send('Out of bounds');
+
+      let bbox;
+      let xy;
+      var zoom = z;
+
+      if (Number.isInteger(x) && Number.isInteger(y)) {
+        const intX = parseInt(req.params.x, 10);
+        const intY = parseInt(req.params.y, 10);
+        if (
+          zoom < tileJSON.minzoom ||
+          zoom > tileJSON.maxzoom ||
+          intX < 0 ||
+          intY < 0 ||
+          intX >= Math.pow(2, zoom) ||
+          intY >= Math.pow(2, zoom)
+        ) {
+          return res.status(404).send('Out of bounds');
+        }
+        xy = [intX, intY];
+        bbox = new SphericalMercator().bbox(intX, intY, zoom);
+      } else {
+        //no zoom limit with coordinates
+        if (zoom < tileJSON.minzoom) {
+          zoom = tileJSON.minzoom;
+        }
+        if (zoom > tileJSON.maxzoom) {
+          zoom = tileJSON.maxzoom;
+        }
+        bbox = [x, y, x + 0.1, y + 0.1];
+        const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
+        xy = [minX, minY];
       }
 
       const fetchTile = await fetchTileData(
         item.source,
         item.sourceType,
-        z,
-        x,
-        y,
+        zoom,
+        xy[0],
+        xy[1],
       );
       if (fetchTile == null) return res.status(204).send();
 
@@ -125,9 +147,9 @@ export const serve_data = {
             req.params.id,
             'data',
             data,
-            z,
-            x,
-            y,
+            zoom,
+            xy[0],
+            xy[1],
           );
         }
       }
@@ -139,15 +161,23 @@ export const serve_data = {
         const tile = new VectorTile(new Pbf(data));
         const geojson = {
           type: 'FeatureCollection',
+          bbox: bbox,
           features: [],
         };
+        console.log(geojson);
         for (const layerName in tile.layers) {
-          const layer = tile.layers[layerName];
-          for (let i = 0; i < layer.length; i++) {
-            const feature = layer.feature(i);
-            const featureGeoJSON = feature.toGeoJSON(x, y, z);
-            featureGeoJSON.properties.layer = layerName;
-            geojson.features.push(featureGeoJSON);
+          var filter = req.query.filter ? new RegExp(req.query.filter) : /.*/;
+          geojson.layers.push(layerName);
+          //console.log(layerName);
+          if (filter.test(layerName)) {
+            const layer = tile.layers[layerName];
+            for (let i = 0; i < layer.length; i++) {
+              const feature = layer.feature(i);
+              const featureGeoJSON = feature.toGeoJSON(x, y, z);
+              //console.log(featureGeoJSON.properties);
+              featureGeoJSON.properties.layer = layerName;
+              geojson.features.push(featureGeoJSON);
+            }
           }
         }
         data = JSON.stringify(geojson);
