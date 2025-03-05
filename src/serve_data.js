@@ -98,8 +98,8 @@ export const serve_data = {
         const intX = parseInt(req.params.x, 10);
         const intY = parseInt(req.params.y, 10);
         if (
-          zoom < tileJSON.minzoom ||
-          zoom > tileJSON.maxzoom ||
+          zoom < item.tileJSON.minzoom ||
+          zoom > item.tileJSON.maxzoom ||
           intX < 0 ||
           intY < 0 ||
           intX >= Math.pow(2, zoom) ||
@@ -111,11 +111,11 @@ export const serve_data = {
         bbox = new SphericalMercator().bbox(intX, intY, zoom);
       } else {
         //no zoom limit with coordinates
-        if (zoom < tileJSON.minzoom) {
-          zoom = tileJSON.minzoom;
+        if (zoom < item.tileJSON.minzoom) {
+          zoom = item.tileJSON.minzoom;
         }
-        if (zoom > tileJSON.maxzoom) {
-          zoom = tileJSON.maxzoom;
+        if (zoom > item.tileJSON.maxzoom) {
+          zoom = item.tileJSON.maxzoom;
         }
         bbox = [x, y, x + 0.1, y + 0.1];
         const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
