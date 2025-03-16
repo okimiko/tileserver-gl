@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import mlcontour from '../node_modules/maplibre-contour/dist/index.mjs';
-import { getPMtilesTile } from './pmtiles_adapter.js';
+import { fetchTileData } from './utils.js';
 
 /**
  * Manages local DEM (Digital Elevation Model) data using maplibre-contour.
@@ -117,47 +117,15 @@ export class LocalDemManager {
     }
 
     try {
-      let data;
-      if (this.sourceType === 'pmtiles') {
-        let zxyTile;
-        if (getPMtilesTile) {
-          zxyTile = await getPMtilesTile(
-            this.source,
-            $zxy.z,
-            $zxy.x,
-            $zxy.y,
-            abortController,
-          );
-        } else {
-          if (abortController.signal.aborted) {
-            console.log('pmtiles aborted in default');
-            return null;
-          }
-          zxyTile = {
-            data: new Uint8Array([$zxy.z, $zxy.x, $zxy.y]),
-          };
-        }
-
-        if (!zxyTile || !zxyTile.data) {
-          throw new Error(`No tile returned for $`);
-        }
-        data = zxyTile.data;
-      } else {
-        data = await new Promise((resolve, reject) => {
-          this.source.getTile($zxy.z, $zxy.x, $zxy.y, (err, tileData) => {
-            if (err) {
-              return /does not exist/.test(err.message)
-                ? resolve(null)
-                : reject(err);
-            }
-            resolve(tileData);
-          });
-        });
-      }
-
-      if (data == null) {
-        return null;
-      }
+      const fetchTile = await fetchTileData(
+        this.source,
+        this.sourceType,
+        $zxy.z,
+        $zxy.x,
+        $zxy.y,
+      );
+      if (fetchTile == null) return null;
+      let data = fetchTile.data;
 
       if (!data) {
         throw new Error(`No tile returned for $`);
