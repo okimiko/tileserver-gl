@@ -68,7 +68,10 @@ COPY --from=builder /usr/src/app /usr/src/app
 
 COPY . /usr/src/app
 
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /data && \
+    chown node:node /data && \
+    chmod +x /usr/src/app/docker-entrypoint.sh
+
 VOLUME /data
 WORKDIR /data
 
