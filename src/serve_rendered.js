@@ -15,7 +15,6 @@ import '@maplibre/maplibre-gl-native';
 import advancedPool from 'advanced-pool';
 import path from 'path';
 import url from 'url';
-import util from 'util';
 import sharp from 'sharp';
 import clone from 'clone';
 import Color from 'color';
@@ -1028,10 +1027,19 @@ export const serve_rendered = {
    * @param {object} params Parameters object.
    * @param {string} id ID of the item.
    * @param {object} programOpts - An object containing the program options
+   * @param {object} style pre-fetched/read StyleJSON object.
    * @param {Function} dataResolver Function to resolve data.
    * @returns {Promise<void>}
    */
-  add: async function (options, repo, params, id, programOpts, dataResolver) {
+  add: async function (
+    options,
+    repo,
+    params,
+    id,
+    programOpts,
+    style,
+    dataResolver,
+  ) {
     const map = {
       renderers: [],
       renderersStatic: [],
@@ -1041,7 +1049,7 @@ export const serve_rendered = {
 
     const { publicUrl, verbose } = programOpts;
 
-    let styleJSON;
+    const styleJSON = clone(style);
     /**
      * Creates a pool of renderers.
      * @param {number} ratio Pixel ratio
@@ -1230,12 +1238,6 @@ export const serve_rendered = {
 
     const styleFile = params.style;
     const styleJSONPath = path.resolve(options.paths.styles, styleFile);
-    try {
-      styleJSON = JSON.parse(await fsp.readFile(styleJSONPath));
-    } catch (e) {
-      console.log('Error parsing style file');
-      return false;
-    }
 
     if (styleJSON.sprite) {
       if (!Array.isArray(styleJSON.sprite)) {
@@ -1458,7 +1460,25 @@ export const serve_rendered = {
     }
     delete repo[id];
   },
-
+  /**
+   * Removes all items from the repository.
+   * @param {object} repo Repository object.
+   * @returns {void}
+   */
+  clear: function (repo) {
+    Object.keys(repo).forEach((id) => {
+      const item = repo[id];
+      if (item) {
+        item.map.renderers.forEach((pool) => {
+          pool.close();
+        });
+        item.map.renderersStatic.forEach((pool) => {
+          pool.close();
+        });
+      }
+      delete repo[id];
+    });
+  },
   /**
    * Get the elevation of terrain tile data by rendering it to a canvas image
    * @param {object} data The background color (or empty string for transparent).
