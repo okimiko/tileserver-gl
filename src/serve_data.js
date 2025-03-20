@@ -34,8 +34,8 @@ const serve_rendered = (
   await import(`${!isLight ? `./serve_rendered.js` : `./serve_light.js`}`)
 ).serve_rendered;
 
-const contour = (
-  await import(`${!isLight ? `./contour.js` : `./serve_light.js`}`)
+const contour = await import(
+  `${!isLight ? `./contour.js` : `./serve_light.js`}`
 );
 
 export const serve_data = {
@@ -197,7 +197,8 @@ export const serve_data = {
           if (!item) return res.sendStatus(404);
           if (!item.source) return res.status(404).send('Missing source');
           if (!item.tileJSON) return res.status(404).send('Missing tileJSON');
-          if (!item.sourceType) return res.status(404).send('Missing sourceType');
+          if (!item.sourceType)
+            return res.status(404).send('Missing sourceType');
 
           const { source, tileJSON, sourceType } = item;
 
