@@ -163,8 +163,9 @@ export const serve_data = {
           type: 'FeatureCollection',
           bbox: bbox,
           features: [],
+          layers: [],
         };
-        console.log(geojson);
+        //console.log(geojson);
         for (const layerName in tile.layers) {
           var filter = req.query.filter ? new RegExp(req.query.filter) : /.*/;
           geojson.layers.push(layerName);
