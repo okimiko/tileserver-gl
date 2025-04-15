@@ -1,5 +1,9 @@
 # tileserver-gl changelog
 
+## 5.2.1
+* Fix invalid Delete of 'prepare' Script required for Light Build (https://github.com/maptiler/tileserver-gl/pull/1489) by @okimiko
+
+
 ## 5.2.0
 * Use npm packages for public/resources (https://github.com/maptiler/tileserver-gl/pull/1427) by @okimiko
 * use ttf files of googlefonts/opensans (https://github.com/maptiler/tileserver-gl/pull/1447) by @okimiko
