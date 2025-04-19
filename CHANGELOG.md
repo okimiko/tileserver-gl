@@ -1,8 +1,9 @@
 # tileserver-gl changelog
 
-## 5.2.2-pre.0
+## 5.3.0-pre.0
 * Fix - Include public\resources js files on npm publish by specifying included files in package.json (https://github.com/maptiler/tileserver-gl/pull/1490) by @acalcutt
-
+* Fix - Various Updates and Fix RTL Plugin Load (https://github.com/maptiler/tileserver-gl/pull/1489) by @okimiko
+* Updates Maplibre-gl-js to v5 and adds globe support.
 
 ## 5.2.1
 * Fix invalid Delete of 'prepare' Script required for Light Build (https://github.com/maptiler/tileserver-gl/pull/1489) by @okimiko
