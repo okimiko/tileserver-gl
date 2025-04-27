@@ -16,13 +16,18 @@ class ElevationInfoControl {
       this.controlContainer.classList.add("maplibre-ctrl-elevation");
       this.controlContainer.textContent = "Elevation: Click on Map";
 
+      this.marker = new maplibregl.Marker();
+
       map.on('click', (e) => {
         var url = this.url;
         var coord = {"z": Math.floor(map.getZoom()), "x": e.lngLat["lng"].toFixed(7), "y": e.lngLat["lat"].toFixed(7)};
-        if (map.transform.isPointOnMapSurface(map.transform.locationToScreenPoint(e.lngLat))) {
+        if (map.transform.isPointOnMapSurface(e.point)) {
           for(var key in coord) {
             url = url.replace(new RegExp('{'+ key +'}','g'), coord[key]);
           }
+
+          this.marker.remove();
+          this.marker.setLngLat(e.lngLat).addTo(this.map);
 
           let request = new XMLHttpRequest();
           request.open("GET", url, true);
@@ -51,5 +56,7 @@ class ElevationInfoControl {
       }
       this.controlContainer.parentNode.removeChild(this.controlContainer);
       this.map = undefined;
+      this.marker.remove();
+      this.marker = undefined;
     }
   };
