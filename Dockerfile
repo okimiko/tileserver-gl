@@ -81,7 +81,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
       libpixman-1-0 \
       libcurl4 \
       librsvg2-2 \
-      libpango-1.0-0 && \
+      libpango-1.0 \
+      libjemalloc2 && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
@@ -97,7 +98,8 @@ COPY --from=builder /usr/src/app /usr/src/app
 
 COPY . /usr/src/app
 
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /data && chown node:node /data && echo "/usr/lib/x86_64-linux-gnu/libjemalloc.so.2" >> /etc/ld.so.preload
+
 VOLUME /data
 WORKDIR /data
 
