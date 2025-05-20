@@ -55,11 +55,6 @@ RUN npm config set maxsockets 1 && \
 
 FROM ubuntu:jammy AS final
 
-ENV \
-    NODE_ENV="production" \
-    CHOKIDAR_USEPOLLING=1 \
-    CHOKIDAR_INTERVAL=500
-
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -89,17 +84,25 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get -qq update && \
     apt-get install -y --no-install-recommends --no-install-suggests nodejs && \
     npm i -g npm@latest && \
+    ln -sf $(find /usr -name "libjemalloc.so*" | head -n 1) /usr/lib/libjemalloc.so && \
     apt-get -y remove curl gnupg && \
     apt-get -y --purge autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Set environment variables after we've confirmed the library path
+ENV \
+    NODE_ENV=production \
+    CHOKIDAR_USEPOLLING=1 \
+    CHOKIDAR_INTERVAL=500 \
+    LD_PRELOAD=/usr/lib/libjemalloc.so \
+    MALLOC_CONF=background_thread:true,metadata_thp:auto,dirty_decay_ms:5000,muzzy_decay_ms:5000
+
 COPY --from=builder /usr/src/app /usr/src/app
 
 COPY . /usr/src/app
 
-RUN mkdir -p /data && chown node:node /data && echo "/usr/lib/x86_64-linux-gnu/libjemalloc.so.2" >> /etc/ld.so.preload
-
+RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 WORKDIR /data
 
