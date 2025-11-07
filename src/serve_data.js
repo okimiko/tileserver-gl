@@ -12,7 +12,6 @@ import { SphericalMercator } from '@mapbox/sphericalmercator';
 import {
   fixTileJSONCenter,
   getTileUrls,
-  isS3Url,
   isValidRemoteUrl,
   fetchTileData,
 } from './utils.js';
@@ -31,9 +30,9 @@ const packageJson = JSON.parse(
 );
 
 const isLight = packageJson.name.slice(-6) === '-light';
-const serve_rendered = (
-  await import(`${!isLight ? `./serve_rendered.js` : `./serve_light.js`}`)
-).serve_rendered;
+const { serve_rendered } = await import(
+  `${!isLight ? `./serve_rendered.js` : `./serve_light.js`}`
+);
 
 export const serve_data = {
   /**
@@ -69,7 +68,7 @@ export const serve_data = {
           String(req.params.format).replace(/\n|\r/g, ''),
         );
       }
-      // eslint-disable-next-line security/detect-object-injection -- req.params.id is route parameter, validated by Express
+
       const item = repo[req.params.id];
       if (!item) {
         return res.sendStatus(404);
@@ -193,7 +192,7 @@ export const serve_data = {
             String(req.params.y).replace(/\n|\r/g, ''),
           );
         }
-        // eslint-disable-next-line security/detect-object-injection -- req.params.id is route parameter, validated by Express
+
         const item = repo?.[req.params.id];
         if (!item) return res.sendStatus(404);
         if (!item.source) return res.status(404).send('Missing source');
@@ -304,7 +303,7 @@ export const serve_data = {
           String(req.params.id).replace(/\n|\r/g, ''),
         );
       }
-      // eslint-disable-next-line security/detect-object-injection -- req.params.id is route parameter, validated by Express
+
       const item = repo[req.params.id];
       if (!item) {
         return res.sendStatus(404);
@@ -373,7 +372,6 @@ export const serve_data = {
 
     // Only check file stats for local files, not remote URLs
     if (!isValidRemoteUrl(inputFile)) {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- inputFile is from config file, validated above
       const inputFileStats = await fsp.stat(inputFile);
       if (!inputFileStats.isFile() || inputFileStats.size === 0) {
         throw Error(`Not valid input file: "${inputFile}"`);
