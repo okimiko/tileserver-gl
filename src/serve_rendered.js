@@ -61,7 +61,7 @@ const staticTypeRegex = new RegExp(
 );
 
 const PATH_PATTERN =
-  /^((fill|stroke|width):[^|]+\|)*(enc:.+|-?\d+(\.\d*)?,-?\d+(\.\d*)?(\|-?\d+(\.\d*)?,-?\d+(\.\d*)?)+)/;
+  /^((fill|stroke|width|border|borderwidth):[^|]+\|)*(enc:.+|-?\d+(\.\d*)?,-?\d+(\.\d*)?(\|-?\d+(\.\d*)?,-?\d+(\.\d*)?)+)/;
 
 const mercator = new SphericalMercator();
 
@@ -163,7 +163,7 @@ function parseCoordinatePair(coordinates, query) {
   }
 
   // Check if coordinates have been provided as lat/lng pair instead of the
-  // ususal lng/lat pair and ensure resulting pair is lng/lat
+  // usual lng/lat pair and ensure resulting pair is lng/lat
   if (query.latlng === '1' || query.latlng === 'true') {
     return [secondCoordinate, firstCoordinate];
   }
@@ -181,9 +181,18 @@ function parseCoordinatePair(coordinates, query) {
 function parseCoordinates(coordinatePair, query, transformer) {
   const parsedCoordinates = parseCoordinatePair(coordinatePair, query);
 
+  if (!parsedCoordinates) {
+    return null;
+  }
+
   // Transform coordinates
   if (transformer) {
-    return transformer(parsedCoordinates);
+    try {
+      return transformer(parsedCoordinates);
+    } catch (error) {
+      console.error('Error transforming coordinates:', error);
+      return null;
+    }
   }
 
   return parsedCoordinates;
@@ -207,12 +216,37 @@ function extractPathsFromQuery(query, transformer) {
     const providedPaths = Array.isArray(query.path) ? query.path : [query.path];
     // Iterate through paths, parse and validate them
     for (const providedPath of providedPaths) {
+      let geometryString = providedPath;
+
+      // Logic to strip style options (like stroke:red) from the front
+      const parts = providedPath.split('|');
+      let firstGeometryIndex = 0;
+      for (const [index, part] of parts.entries()) {
+        // A part is considered a style option if it contains ':' but is NOT an 'enc:' string or a coordinate
+        if (part.includes(':') && !part.startsWith('enc:')) {
+          // This is a style option, continue
+          continue;
+        } else {
+          // This is the start of the geometry (enc: or coordinate)
+          firstGeometryIndex = index;
+          break;
+        }
+      }
+
+      // If we found a geometry, set the geometryString to the rest of the path
+      if (firstGeometryIndex > 0) {
+        geometryString = parts.slice(firstGeometryIndex).join('|');
+      }
+
       // Logic for pushing coords to path when path includes google polyline
-      if (providedPath.includes('enc:') && PATH_PATTERN.test(providedPath)) {
+      if (
+        geometryString.includes('enc:') &&
+        PATH_PATTERN.test(geometryString)
+      ) {
         // +4 because 'enc:' is 4 characters, everything after 'enc:' is considered to be part of the polyline
-        const encIndex = providedPath.indexOf('enc:') + 4;
+        const encIndex = geometryString.indexOf('enc:') + 4;
         const coords = polyline
-          .decode(providedPath.substring(encIndex))
+          .decode(geometryString.substring(encIndex))
           .map(([lat, lng]) => [lng, lat]);
         paths.push(coords);
       } else {
@@ -220,7 +254,7 @@ function extractPathsFromQuery(query, transformer) {
         const currentPath = [];
 
         // Extract coordinate-list from path
-        const pathParts = (providedPath || '').split('|');
+        const pathParts = (geometryString || '').split('|');
 
         // Iterate through coordinate-list, parse the coordinates and validate them
         for (const pair of pathParts) {
@@ -248,6 +282,7 @@ function extractPathsFromQuery(query, transformer) {
   }
   return paths;
 }
+
 /**
  * Parses marker options provided via query and sets corresponding attributes
  * on marker object.
@@ -267,22 +302,38 @@ function parseMarkerOptions(optionsList, marker) {
 
     switch (optionParts[0]) {
       // Scale factor to up- or downscale icon
-      case 'scale':
-        // Scale factors must not be negative
-        marker.scale = Math.abs(parseFloat(optionParts[1]));
+      case 'scale': {
+        // Scale factors must not be negative and should have reasonable bounds
+        const scale = parseFloat(optionParts[1]);
+        if (!isNaN(scale) && scale > 0 && scale < 10) {
+          marker.scale = scale;
+        } else {
+          console.warn(`Invalid marker scale: ${optionParts[1]}`);
+        }
         break;
+      }
       // Icon offset as positive or negative pixel value in the following
       // format [offsetX],[offsetY] where [offsetY] is optional
       case 'offset': {
         const providedOffset = optionParts[1].split(',');
+        const offsetX = parseFloat(providedOffset[0]);
+
         // Set X-axis offset
-        marker.offsetX = parseFloat(providedOffset[0]);
+        if (!isNaN(offsetX) && Math.abs(offsetX) < 1000) {
+          marker.offsetX = offsetX;
+        }
+
         // Check if an offset has been provided for Y-axis
         if (providedOffset.length > 1) {
-          marker.offsetY = parseFloat(providedOffset[1]);
+          const offsetY = parseFloat(providedOffset[1]);
+          if (!isNaN(offsetY) && Math.abs(offsetY) < 1000) {
+            marker.offsetY = offsetY;
+          }
         }
         break;
       }
+      default:
+        console.warn(`Unknown marker option: ${optionParts[0]}`);
     }
   }
 }
@@ -303,25 +354,32 @@ function extractMarkersFromQuery(query, options, transformer) {
   const markers = [];
 
   // Check if multiple markers have been provided and mimic a list if it's a
-  // single maker.
+  // single marker.
   const providedMarkers = Array.isArray(query.marker)
     ? query.marker
     : [query.marker];
 
-  // Iterate through provided markers which can have one of the following
-  // formats
-  // [location]|[pathToFileTelativeToConfiguredIconPath]
+  // Iterate through provided markers which can have one of the following formats:
+  // [location]|[pathToFileRelativeToConfiguredIconPath]
   // [location]|[pathToFile...]|[option]|[option]|...
   for (const providedMarker of providedMarkers) {
+    if (typeof providedMarker !== 'string') {
+      continue;
+    }
+
     const markerParts = providedMarker.split('|');
+
     // Ensure we got at least a location and an icon uri
     if (markerParts.length < 2) {
+      console.warn('Marker requires at least location and icon path');
       continue;
     }
 
     const locationParts = markerParts[0].split(',');
+
     // Ensure the locationParts contains two items
     if (locationParts.length !== 2) {
+      console.warn('Marker location must have exactly 2 coordinates');
       continue;
     }
 
@@ -337,6 +395,7 @@ function extractMarkersFromQuery(query, options, transformer) {
 
       // If the selected icon is not part of available icons skip it
       if (!options.paths.availableIcons.includes(iconURI)) {
+        console.warn(`Icon not in available icons: ${iconURI}`);
         continue;
       }
 
@@ -344,21 +403,24 @@ function extractMarkersFromQuery(query, options, transformer) {
 
       // When we encounter a remote icon check if the configuration explicitly allows them.
     } else if (isRemoteURL && options.allowRemoteMarkerIcons !== true) {
+      console.warn('Remote marker icons not allowed');
       continue;
     } else if (isDataURL && options.allowInlineMarkerImages !== true) {
+      console.warn('Inline marker images not allowed');
       continue;
     }
 
     // Ensure marker location could be parsed
     const location = parseCoordinates(locationParts, query, transformer);
     if (location === null) {
+      console.warn('Failed to parse marker location');
       continue;
     }
 
-    const marker = {};
-
-    marker.location = location;
-    marker.icon = iconURI;
+    const marker = {
+      location,
+      icon: iconURI,
+    };
 
     // Check if options have been provided
     if (markerParts.length > 2) {
