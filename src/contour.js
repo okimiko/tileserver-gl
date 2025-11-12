@@ -69,19 +69,19 @@ export class LocalDemManager {
    */
   async getImageData(blob, abortController) {
     try {
-      if (Boolean(abortController?.signal?.aborted)) return null;
+      if (abortController?.signal?.aborted) return null;
 
       const buffer = await blob.arrayBuffer();
       const image = sharp(Buffer.from(buffer));
 
-      if (Boolean(abortController?.signal?.aborted)) return null;
+      if (abortController?.signal?.aborted) return null;
 
       const { data, info } = await image
         .ensureAlpha() // Ensure RGBA output
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      if (Boolean(abortController?.signal?.aborted)) return null;
+      if (abortController?.signal?.aborted) return null;
 
       const parsed = mlcontour.decodeParsedImage(
         info.width,
@@ -90,7 +90,7 @@ export class LocalDemManager {
         data,
       );
 
-      if (Boolean(abortController?.signal?.aborted)) return null;
+      if (abortController?.signal?.aborted) return null;
 
       return parsed;
     } catch (error) {
