@@ -10,7 +10,6 @@
 * Fix Renderer Crashes and Memory Leak (https://github.com/maptiler/tileserver-gl/pull/1825) by @acalcutt
 * Fix loading local data sources (PMTiles/MBTiles) specified in style (https://github.com/maptiler/tileserver-gl/pull/1855) by @acalcutt
 * **BREAKING**: Change 'sparse' option default based on tile format - vector tiles (pbf) default to false (204), raster tiles default to true (404 for overzoom) (https://github.com/maptiler/tileserver-gl/pull/1855) by @acalcutt
-* Revert "fix(deps): bump maplibre-gl from 5.13.0 to 5.14.0 (https://github.com/maptiler/tileserver-gl/pull/1853)
 * Revert maplibre-gl-js from 5.14.0 to 5.13.0 to fix terrain preview (https://github.com/maptiler/tileserver-gl/pull/1859)
 
 ## 5.4.0
