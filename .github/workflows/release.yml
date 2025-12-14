@@ -165,6 +165,9 @@ jobs:
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Install dependencies for prepare scripts
+        run: npm install copyfiles maplibre-gl @maplibre/maplibre-gl-inspect @mapbox/mapbox-gl-rtl-text leaflet leaflet-hash --no-save
+
       - name: Get release type
         id: prepare_release
         run: |
