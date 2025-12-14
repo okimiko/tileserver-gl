@@ -7,6 +7,10 @@
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
 
+## 5.5.0-pre.8
+### ✨ Features and improvements
+- Migrate NPM publishing to trusted publishing (OIDC) ([#1872](https://github.com/maptiler/tileserver-gl/pull/1872)) (by [app/copilot-swe-agent](https://github.com/app/copilot-swe-agent)
+
 ## 5.5.0-pre.7
 - Add S3 support for PMTiles with multiple AWS credential profiles (https://github.com/maptiler/tileserver-gl/pull/1779) by @acalcutt
 - Create .aws directory passthrough folder in Dockerfile (https://github.com/maptiler/tileserver-gl/pull/1784) by @acalcutt
