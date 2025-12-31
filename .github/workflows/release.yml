@@ -33,8 +33,6 @@ jobs:
           node-version-file: 'package.json'
           check-latest: true
           cache: 'npm'
-          auth-type: oidc
-          always-auth: true
 
       - name: Check if version is published
         id: check
@@ -168,8 +166,6 @@ jobs:
           check-latest: true
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
-          auth-type: oidc
-          always-auth: true
 
       - name: Install NPM dependencies 🚀
         run: npm ci --prefer-offline --no-audit
@@ -188,8 +184,11 @@ jobs:
 
       # NPM Publishing
       - name: Publish to NPM
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ''  # Clear placeholder set by setup-node to enable OIDC
         run: |
-          npm publish --access public --tag ${{ steps.prepare_release.outputs.tag }}
+          npm publish --access public --provenance --tag ${{ steps.prepare_release.outputs.tag }}
 
       - name: Create Tileserver Light Directory
         run: node publish.js --no-publish
@@ -200,8 +199,11 @@ jobs:
 
       - name: Publish Light to NPM
         working-directory: ./light
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ''  # Clear placeholder set by setup-node to enable OIDC
         run: |
-          npm publish --access public --tag ${{ steps.prepare_release.outputs.tag }}
+          npm publish --access public --provenance --tag ${{ steps.prepare_release.outputs.tag }}
 
       # Docker Manifest Creation
       - name: Set up Docker Buildx
