@@ -125,7 +125,7 @@ export const serve_data = {
         item.tileJSON.maxzoom,
       );
 
-      const {tileX, tileY, pixelX, pixelY} = lonLatToTilePixel(
+      const { tileX, tileY } = lonLatToTilePixel(
         lon,
         lat,
         clampedZoom,
@@ -141,7 +141,6 @@ export const serve_data = {
       );
 
       if (fetchTile == null) {
-          console.log(`%s, %s, %s, %s, %s`, String(clampedZoom), String(tileX), String(tileY), String(lat), String(lon));
         // sparse=true (default) -> 404 (allows overzoom)
         // sparse=false -> 204 (empty tile, no overzoom)
         return res.status(item.sparse ? 404 : 204).send();
@@ -175,7 +174,7 @@ export const serve_data = {
         const tile = new VectorTile(new Pbf(data));
         const geojson = {
           type: 'FeatureCollection',
-          info: { 'tileX': tileX, 'tileY': tileY, 'lat': lat, 'long': lon},
+          info: { tileX: tileX, tileY: tileY, lat: lat, long: lon },
           features: [],
           layers: [],
         };
