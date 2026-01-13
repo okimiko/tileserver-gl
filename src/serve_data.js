@@ -94,9 +94,8 @@ export const serve_data = {
         return res.status(404).send('Invalid format');
       }
 
-      let bbox;
-      let xy;
-      var zoom = z;
+      let lon, lat;
+      let zoom = z;
 
       if (Number.isInteger(x) && Number.isInteger(y)) {
         const intX = parseInt(req.params.x, 10);
@@ -111,29 +110,38 @@ export const serve_data = {
         ) {
           return res.status(404).send('Out of bounds');
         }
-        xy = [intX, intY];
-        bbox = new SphericalMercator().bbox(intX, intY, zoom);
+
+        const bbox = new SphericalMercator().bbox(intX, intY, zoom);
+        lon = (bbox[0] + bbox[2]) / 2;
+        lat = (bbox[1] + bbox[3]) / 2;
       } else {
-        //no zoom limit with coordinates
-        if (zoom < item.tileJSON.minzoom) {
-          zoom = item.tileJSON.minzoom;
-        }
-        if (zoom > item.tileJSON.maxzoom) {
-          zoom = item.tileJSON.maxzoom;
-        }
-        bbox = [x, y, x + 0.1, y + 0.1];
-        const { minX, minY } = new SphericalMercator().xyz(bbox, zoom);
-        xy = [minX, minY];
+        lon = x;
+        lat = y;
       }
+
+      // Build response matching original format
+      const clampedZoom = Math.min(
+        Math.max(zoom, item.tileJSON.minzoom),
+        item.tileJSON.maxzoom,
+      );
+
+      const {tileX, tileY, pixelX, pixelY} = lonLatToTilePixel(
+        lon,
+        lat,
+        clampedZoom,
+        item.tileJSON.tileSize || 512,
+      );
 
       const fetchTile = await fetchTileData(
         item.source,
         item.sourceType,
-        zoom,
-        xy[0],
-        xy[1],
+        clampedZoom,
+        tileX,
+        tileY,
       );
+
       if (fetchTile == null) {
+          console.log(`%s, %s, %s, %s, %s`, String(clampedZoom), String(tileX), String(tileY), String(lat), String(lon));
         // sparse=true (default) -> 404 (allows overzoom)
         // sparse=false -> 204 (empty tile, no overzoom)
         return res.status(item.sparse ? 404 : 204).send();
@@ -153,9 +161,9 @@ export const serve_data = {
             req.params.id,
             'data',
             data,
-            zoom,
-            xy[0],
-            xy[1],
+            clampedZoom,
+            tileX,
+            tileY,
           );
         }
       }
@@ -167,22 +175,19 @@ export const serve_data = {
         const tile = new VectorTile(new Pbf(data));
         const geojson = {
           type: 'FeatureCollection',
-          bbox: bbox,
+          info: { 'tileX': tileX, 'tileY': tileY, 'lat': lat, 'long': lon},
           features: [],
           layers: [],
         };
-        //console.log(geojson);
         for (const layerName in tile.layers) {
           var filter = req.query.filter ? new RegExp(req.query.filter) : /.*/;
           geojson.layers.push(layerName);
-          //console.log(layerName);
           if (filter.test(layerName)) {
             // eslint-disable-next-line security/detect-object-injection -- layerName from VectorTile library internal data structure
             const layer = tile.layers[layerName];
             for (let i = 0; i < layer.length; i++) {
               const feature = layer.feature(i);
               const featureGeoJSON = feature.toGeoJSON(x, y, z);
-              //console.log(featureGeoJSON.properties);
               featureGeoJSON.properties.layer = layerName;
               geojson.features.push(featureGeoJSON);
             }
